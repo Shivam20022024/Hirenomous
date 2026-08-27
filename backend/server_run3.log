@@ -1,0 +1,59 @@
+INFO:     Started server process [20912]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+Starting Hireonomous v1.0.0...
+DEBUG: Connecting to database defined in .env.local...
+Connected to MongoDB: voiceai
+API is ready on port 8001
+INFO:     127.0.0.1:50170 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50204 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50208 - "GET /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50206 - "GET /analytics/funnel?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50207 - "GET /analytics/roles?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50208 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50205 - "GET /analytics/dashboard?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50206 - "GET /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50209 - "GET /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50207 - "GET /analytics/funnel?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50205 - "GET /analytics/dashboard?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50204 - "GET /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50209 - "GET /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50204 - "GET /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50208 - "GET /analytics/roles?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50285 - "OPTIONS /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50282 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50284 - "GET /analytics/funnel?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50287 - "GET /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50285 - "GET /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50287 - "OPTIONS /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50283 - "GET /analytics/dashboard?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50284 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50282 - "GET /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50286 - "GET /analytics/roles?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50285 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50287 - "GET /analytics/funnel?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50283 - "GET /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50286 - "GET /api/auth/me HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50285 - "GET /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50284 - "GET /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50282 - "GET /analytics/dashboard?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50287 - "GET /analytics/roles?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50287 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50282 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50282 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50282 - "GET /jobs HTTP/1.1" 200 OK
+INFO:app.api.routes.resume_routes:Fetching all candidates... date=None
+INFO:     127.0.0.1:50301 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50301 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50300 - "GET /candidates HTTP/1.1" 200 OK
+INFO:app.api.routes.resume_routes:Fetching all candidates... date=None
+INFO:     127.0.0.1:50301 - "GET /candidates HTTP/1.1" 200 OK
+INFO:app.api.routes.resume_routes:Fetching all candidates... date=None
+INFO:     127.0.0.1:50314 - "GET /candidates?job_id=9c8d883e-39ef-48b1-bd71-e0e055f96e7d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50315 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50328 - "OPTIONS /email/send-shortlisted?job_id=9c8d883e-39ef-48b1-bd71-e0e055f96e7d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50328 - "POST /email/send-shortlisted?job_id=9c8d883e-39ef-48b1-bd71-e0e055f96e7d HTTP/1.1" 200 OK
+INFO:app.api.routes.resume_routes:Fetching all candidates... date=None
+INFO:     127.0.0.1:50328 - "GET /candidates?job_id=9c8d883e-39ef-48b1-bd71-e0e055f96e7d HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50328 - "GET /jobs HTTP/1.1" 200 OK

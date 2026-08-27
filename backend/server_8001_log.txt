@@ -1,0 +1,10 @@
+Starting TalentLens v1.0.0...
+DEBUG: Connecting to database defined in .env.local...
+Connected to MongoDB: voiceai
+API is ready on port 8001
+INFO:     127.0.0.1:49852 - "POST /reset-session?seed_demo=true HTTP/1.1" 200 OK
+ INFO:     127.0.0.1:64830 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64830 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64830 - "POST /reset-session?seed_demo=true HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56344 - "POST /reset-session?seed_demo=true HTTP/1.1" 200 OK
+MongoDB connection closed.

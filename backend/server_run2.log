@@ -1,0 +1,104 @@
+INFO:     Started server process [19688]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8001 (Press CTRL+C to quit)
+Starting Hireonomous v1.0.0...
+DEBUG: Connecting to database defined in .env.local...
+Connected to MongoDB: voiceai
+API is ready on port 8001
+INFO:     127.0.0.1:49200 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49265 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49265 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49265 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49265 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49265 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49265 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49320 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49320 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49320 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49320 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49320 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49320 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49320 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49316 - "POST /email/send-shortlisted HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49316 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49316 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49316 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49393 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49692 - "GET /analytics/dashboard HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49692 - "GET /analytics/roles HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49692 - "GET /analytics/trend?metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49692 - "GET /analytics/funnel HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49745 - "OPTIONS /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49746 - "OPTIONS /analytics/dashboard?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49747 - "OPTIONS /analytics/funnel?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49748 - "OPTIONS /analytics/roles?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49749 - "OPTIONS /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49750 - "OPTIONS /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49745 - "OPTIONS /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49746 - "OPTIONS /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49747 - "OPTIONS /analytics/dashboard?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49748 - "OPTIONS /analytics/funnel?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49749 - "OPTIONS /analytics/roles?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49750 - "OPTIONS /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49745 - "OPTIONS /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49747 - "OPTIONS /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49746 - "GET /jobs HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49748 - "GET /analytics/dashboard?date_range=this_month HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49749 - "GET /analytics/funnel?date_range=this_month HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49750 - "GET /analytics/roles?date_range=this_month HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49745 - "GET /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49747 - "GET /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49746 - "GET /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49748 - "GET /jobs HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49749 - "GET /analytics/dashboard?date_range=this_month HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49750 - "GET /analytics/funnel?date_range=this_month HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49745 - "GET /analytics/roles?date_range=this_month HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49747 - "GET /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49746 - "GET /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 401 Unauthorized
+INFO:     127.0.0.1:49748 - "GET /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 401 Unauthorized
+WARNING:passlib.handlers.bcrypt:(trapped) error reading bcrypt version
+Traceback (most recent call last):
+  File "C:\Users\Shivam kumar\AppData\Local\Programs\Python\Python311\Lib\site-packages\passlib\handlers\bcrypt.py", line 620, in _load_backend_mixin
+    version = _bcrypt.__about__.__version__
+              ^^^^^^^^^^^^^^^^^
+AttributeError: module 'bcrypt' has no attribute '__about__'
+INFO:     127.0.0.1:49780 - "POST /api/auth/login HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49780 - "OPTIONS /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49780 - "OPTIONS /analytics/dashboard?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49781 - "OPTIONS /analytics/funnel?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49781 - "OPTIONS /analytics/roles?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49780 - "OPTIONS /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49781 - "OPTIONS /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49781 - "OPTIONS /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49780 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49794 - "OPTIONS /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49795 - "OPTIONS /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49796 - "OPTIONS /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49780 - "GET /analytics/funnel?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49795 - "GET /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49796 - "GET /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49781 - "GET /analytics/dashboard?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49795 - "GET /analytics/funnel?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49796 - "GET /analytics/trend?date_range=this_month&metric=interviews HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49793 - "GET /analytics/roles?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49781 - "GET /analytics/trend?date_range=this_month&metric=selected HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49794 - "GET /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49780 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49795 - "GET /analytics/dashboard?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49794 - "GET /analytics/trend?date_range=this_month&metric=candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49793 - "GET /analytics/roles?date_range=this_month HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49847 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49847 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49862 - "OPTIONS /candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49867 - "OPTIONS /candidates HTTP/1.1" 200 OK
+INFO:app.api.routes.resume_routes:Fetching all candidates... date=None
+INFO:     127.0.0.1:49862 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49862 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49867 - "GET /candidates HTTP/1.1" 200 OK
+INFO:app.api.routes.resume_routes:Fetching all candidates... date=None
+INFO:     127.0.0.1:49862 - "GET /candidates HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49891 - "OPTIONS /candidates?job_id=9c8d883e-39ef-48b1-bd71-e0e055f96e7d HTTP/1.1" 200 OK
+INFO:app.api.routes.resume_routes:Fetching all candidates... date=None
+INFO:     127.0.0.1:49892 - "GET /jobs HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49891 - "GET /candidates?job_id=9c8d883e-39ef-48b1-bd71-e0e055f96e7d HTTP/1.1" 200 OK

@@ -1,0 +1,37 @@
+
+> my-project@0.1.0 dev
+> next dev
+
+▲ Next.js 16.3.0 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.36.8.192:3000
+- Environments: .env.local
+✓ Ready in 818ms
+⚠ Warning: Next.js ignored package-lock.json in C:\Users\Shivam kumar because it would include your home directory (C:\Users\Shivam kumar).
+ To use this directory, set `turbopack.root` in your Next.js config.
+
+✓ Running next.config.mjs took 33ms
+
+✓ Generated AGENTS.md and CLAUDE.md for AI agents. Set `agentRules: false` in next.config to disable.
+ GET /login 200 in 1058ms (next.js: 802ms, application-code: 256ms)
+ GET /dashboard 200 in 85ms (next.js: 42ms, application-code: 43ms)
+ GET /jobs 200 in 63ms (next.js: 38ms, application-code: 26ms)
+ GET /candidates 200 in 66ms (next.js: 43ms, application-code: 23ms)
+ GET /dashboard 200 in 28ms (next.js: 7ms, application-code: 21ms)
+ GET /jobs 200 in 23ms (next.js: 5ms, application-code: 18ms)
+ GET /resumes 200 in 79ms (next.js: 46ms, application-code: 33ms)
+ GET /campaigns 200 in 137ms (next.js: 63ms, application-code: 74ms)
+ GET /candidates 200 in 32ms (next.js: 6ms, application-code: 26ms)
+ GET /jobs 200 in 25ms (next.js: 5ms, application-code: 20ms)
+ GET /candidates 200 in 25ms (next.js: 5ms, application-code: 20ms)
+ GET /jobs 200 in 29ms (next.js: 5ms, application-code: 24ms)
+ GET /candidates 200 in 24ms (next.js: 4ms, application-code: 19ms)
+ GET /candidates 200 in 144ms (next.js: 5ms, application-code: 139ms)
+ GET /dashboard 200 in 26ms (next.js: 5ms, application-code: 21ms)
+ GET /dashboard 200 in 27ms (next.js: 5ms, application-code: 22ms)
+ GET /dashboard 200 in 31ms (next.js: 6ms, application-code: 25ms)
+ GET /dashboard 200 in 35ms (next.js: 6ms, application-code: 29ms)
+ GET /dashboard 200 in 50ms (next.js: 20ms, application-code: 30ms)
+ GET /jobs 200 in 39ms (next.js: 8ms, application-code: 32ms)
+ GET /dashboard 200 in 29ms (next.js: 6ms, application-code: 23ms)
+[?25h

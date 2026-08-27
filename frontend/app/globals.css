@@ -1,0 +1,84 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --radius-sm: calc(var(--radius) * .6);
+  --radius-md: calc(var(--radius) * .8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  color-scheme: light;
+  --background: oklch(0.985 0.002 260);
+  --foreground: oklch(0.19 0.025 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.19 0.025 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.19 0.025 260);
+  --primary: oklch(0.49 0.22 286);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.96 0.006 260);
+  --secondary-foreground: oklch(0.25 0.025 260);
+  --muted: oklch(0.96 0.006 260);
+  --muted-foreground: oklch(0.52 0.025 260);
+  --accent: oklch(0.95 0.025 286);
+  --accent-foreground: oklch(0.35 0.15 286);
+  --destructive: oklch(0.58 0.22 25);
+  --border: oklch(0.91 0.01 260);
+  --input: oklch(0.88 0.012 260);
+  --ring: oklch(0.49 0.22 286);
+  --sidebar: oklch(0.995 0.002 260);
+  --sidebar-foreground: oklch(0.24 0.025 260);
+  --sidebar-border: oklch(0.92 0.01 260);
+  --radius: .55rem;
+}
+
+* { @apply border-border outline-ring/50; }
+html { background: var(--background); }
+body { @apply bg-background text-foreground antialiased; font-family: Arial, Helvetica, sans-serif; }
+.brand-mark { display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 12px; background: oklch(0.96 0.025 286); color: var(--primary); font-size: 26px; line-height: 1; }
+.avatar { display: flex; width: 38px; height: 38px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 999px; background: oklch(0.16 0.03 260); color: white; font-size: 12px; font-weight: 700; }
+.avatar-blue { background: var(--primary); color: white; }
+.job-card { display: flex; min-height: 252px; flex-direction: column; border: 1px solid var(--border); border-radius: 16px; background: var(--card); padding: 20px; box-shadow: 0 2px 4px color-mix(in oklab, var(--foreground) 4%, transparent); transition: border-color .2s, box-shadow .2s, transform .2s; }
+.job-card:hover { border-color: color-mix(in oklab, var(--primary) 30%, var(--border)); box-shadow: 0 8px 20px color-mix(in oklab, var(--primary) 8%, transparent); transform: translateY(-1px); }
+.job-card-active { border-color: color-mix(in oklab, var(--primary) 62%, white); box-shadow: 0 4px 10px color-mix(in oklab, var(--primary) 14%, transparent); }
+.icon-button { display: flex; width: 30px; height: 30px; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 8px; color: var(--muted-foreground); }
+.icon-button:hover { background: var(--muted); color: var(--foreground); }
+.pin-dot { display: inline-block; width: 11px; height: 11px; border: 1.5px solid currentColor; border-radius: 999px 999px 999px 0; transform: rotate(-45deg); }
+@media (max-width: 640px) { .job-card { min-height: 0; } }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted-foreground); }
+button, input, select { font: inherit; }
+button { cursor: pointer; }
+::selection { background: oklch(0.88 0.08 286); color: oklch(0.25 0.12 286); }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: oklch(0.82 0.01 260); border-radius: 999px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
+@layer base { :focus-visible { @apply outline-2 outline-offset-2 outline-ring; } }
+
+.dark { color-scheme: dark; }
+@media (prefers-color-scheme: dark) { :root:not(.light) { color-scheme: light; } }
