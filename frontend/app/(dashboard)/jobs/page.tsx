@@ -146,14 +146,14 @@ export default function JobsPage() {
               <div className="text-xs text-muted-foreground mb-3">
                 Posted on {new Date(job.createdAt).toLocaleDateString()}
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => alert("LinkedIn integration coming soon!")} className="flex-1 rounded-md border border-border py-1.5 text-xs font-medium hover:bg-muted text-muted-foreground hover:text-foreground">
+              <div className="flex gap-1.5">
+                <button onClick={() => alert("LinkedIn integration coming soon!")} className="flex-1 rounded border border-[#0a66c2]/30 bg-[#0a66c2]/5 py-1.5 text-[10px] font-semibold text-[#0a66c2] hover:bg-[#0a66c2]/15 transition-colors text-center whitespace-nowrap">
                   + LinkedIn
                 </button>
-                <button onClick={() => alert("Naukri integration coming soon!")} className="flex-1 rounded-md border border-border py-1.5 text-xs font-medium hover:bg-muted text-muted-foreground hover:text-foreground">
+                <button onClick={() => alert("Naukri integration coming soon!")} className="flex-1 rounded border border-[#275df5]/30 bg-[#275df5]/5 py-1.5 text-[10px] font-semibold text-[#275df5] hover:bg-[#275df5]/15 transition-colors text-center whitespace-nowrap">
                   + Naukri
                 </button>
-                <button onClick={() => alert("SharePoint integration coming soon!")} className="flex-1 rounded-md border border-border py-1.5 text-xs font-medium hover:bg-muted text-muted-foreground hover:text-foreground">
+                <button onClick={() => alert("SharePoint integration coming soon!")} className="flex-1 rounded border border-[#03787c]/30 bg-[#03787c]/5 py-1.5 text-[10px] font-semibold text-[#03787c] hover:bg-[#03787c]/15 transition-colors text-center whitespace-nowrap">
                   + SharePoint
                 </button>
               </div>
