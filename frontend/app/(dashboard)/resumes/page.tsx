@@ -117,7 +117,7 @@ export default function ResumesPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6 px-5 py-9 lg:px-8 lg:py-14">
       <div>
-        <h1 className="text-3xl font-bold tracking-[-0.06em]">Resume Database</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Resume Database</h1>
         <p className="mt-2 text-sm text-muted-foreground">Upload and parse resumes or manually add candidates.</p>
       </div>
 
