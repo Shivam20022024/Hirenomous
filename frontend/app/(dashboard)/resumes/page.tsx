@@ -115,141 +115,253 @@ export default function ResumesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-5 py-9 lg:px-8 lg:py-14">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Resume Database</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Upload and parse resumes or manually add candidates.</p>
+    <div className="mx-auto max-w-[1240px] space-y-8 px-5 py-9 lg:px-8 lg:py-12">
+      {/* 1. Header */}
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Resume Database</h1>
+          <p className="mt-2 text-sm text-muted-foreground">Upload, parse, and organize candidate resumes in one place.</p>
+        </div>
+        {jobs.length > 0 && (
+          <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 shadow-sm">
+             <Briefcase className="h-4 w-4 text-primary" />
+             <span className="text-sm font-semibold">{jobs.length} Active Jobs</span>
+          </div>
+        )}
       </div>
 
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="flex border-b border-border">
-          <button 
-            onClick={() => { setActiveTab('upload'); setError(''); setSuccess(''); }}
-            className={`flex-1 py-4 text-sm font-semibold transition-colors ${activeTab === 'upload' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}
-          >
-            Upload Resume
-          </button>
-          <button 
-            onClick={() => { setActiveTab('manual'); setError(''); setSuccess(''); }}
-            className={`flex-1 py-4 text-sm font-semibold transition-colors ${activeTab === 'manual' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/50'}`}
-          >
-            Manual Entry
-          </button>
-        </div>
+      {/* 2. Tabs */}
+      <div className="flex w-full sm:w-fit rounded-lg bg-muted p-1">
+        <button 
+          type="button"
+          onClick={() => { setActiveTab('upload'); setError(''); setSuccess(''); }}
+          className={`flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-md px-6 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === 'upload' ? 'bg-card text-primary shadow-sm ring-1 ring-border/50' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <Upload size={16} /> Upload Resume
+        </button>
+        <button 
+          type="button"
+          onClick={() => { setActiveTab('manual'); setError(''); setSuccess(''); }}
+          className={`flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-md px-6 py-2.5 text-sm font-semibold transition-all duration-200 ${activeTab === 'manual' ? 'bg-card text-primary shadow-sm ring-1 ring-border/50' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <FileText size={16} /> Manual Entry
+        </button>
+      </div>
 
-        <div className="p-6">
-          {error && <div className="mb-6 rounded-lg bg-destructive/15 p-4 text-sm text-destructive flex items-start gap-3"><X size={16} className="mt-0.5 shrink-0"/>{error}</div>}
-          {success && <div className="mb-6 rounded-lg bg-emerald-100 p-4 text-sm text-emerald-800 flex items-start gap-3"><Check size={16} className="mt-0.5 shrink-0"/>{success}</div>}
+      <div className="relative">
+        {error && <div className="mb-6 rounded-xl bg-destructive/10 p-4 text-sm font-medium text-destructive flex items-start gap-3"><X size={16} className="mt-0.5 shrink-0"/>{error}</div>}
+        {success && <div className="mb-6 rounded-xl bg-emerald-500/10 p-4 text-sm font-medium text-emerald-700 flex items-start gap-3"><Check size={16} className="mt-0.5 shrink-0"/>{success}</div>}
 
-          {activeTab === 'upload' ? (
-            <form onSubmit={handleUploadSubmit} className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium mb-2">Select Job (Optional)</label>
-                <select 
-                  value={jobId} 
-                  onChange={e => {
-                    const newJobId = e.target.value;
-                    setJobId(newJobId);
-                    if (newJobId) {
-                      const selectedJob = jobs.find(j => j.id === newJobId);
-                      if (selectedJob && selectedJob.description) {
-                        setJobDescription(selectedJob.description);
+        {activeTab === 'upload' ? (
+          <form onSubmit={handleUploadSubmit} className="space-y-6">
+            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+              {/* Left Column: Job & AI */}
+              <div className="space-y-6 flex flex-col">
+                {/* 3. Job Selection */}
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+                  <div className="mb-4">
+                    <h2 className="text-base font-semibold text-foreground">Match resumes to a job</h2>
+                    <p className="text-xs text-muted-foreground mt-1">Select an active job to parse resumes against its requirements.</p>
+                  </div>
+                  
+                  <select 
+                    value={jobId} 
+                    onChange={e => {
+                      const newJobId = e.target.value;
+                      setJobId(newJobId);
+                      if (newJobId) {
+                        const selectedJob = jobs.find(j => j.id === newJobId);
+                        if (selectedJob && selectedJob.description) {
+                          setJobDescription(selectedJob.description);
+                        }
+                      } else {
+                        setJobDescription('');
                       }
-                    } else {
-                      setJobDescription('');
-                    }
-                  }} 
-                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none"
-                >
-                  <option value="">No specific job</option>
-                  {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
-                </select>
-              </div>
+                    }} 
+                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80"
+                  >
+                    <option value="">Select a job (optional)</option>
+                    {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
+                  </select>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Job Description (For AI Matching)</label>
-                <textarea 
-                  value={jobDescription} 
-                  onChange={e => setJobDescription(e.target.value)} 
-                  disabled={skipAi}
-                  className="w-full h-32 rounded-xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none disabled:opacity-50" 
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input 
-                  type="checkbox" 
-                  id="skipAi" 
-                  checked={skipAi} 
-                  onChange={e => setSkipAi(e.target.checked)}
-                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                />
-                <label htmlFor="skipAi" className="text-sm font-medium text-foreground">Skip AI Analysis (Faster, no scoring)</label>
-              </div>
-
-              <div className="mt-4">
-                <label className="block text-sm font-medium mb-2">Resume File (PDF/DOCX)</label>
-                <div className="flex justify-center rounded-xl border-2 border-dashed border-border px-6 py-10 hover:bg-muted/50 transition-colors">
-                  <div className="text-center">
-                    <FileText className="mx-auto h-12 w-12 text-muted-foreground opacity-50" aria-hidden="true" />
-                    <div className="mt-4 flex text-sm leading-6 text-muted-foreground justify-center">
-                      <label className="relative cursor-pointer rounded-md bg-transparent font-semibold text-primary focus-within:outline-none hover:text-primary/80">
-                        <span>Upload files</span>
-                        <input ref={fileInputRef} type="file" multiple className="sr-only" onChange={e => setFiles(Array.from(e.target.files || []))} accept=".pdf,.docx,.doc" />
-                      </label>
-                      <p className="pl-1">or drag and drop</p>
+                  {jobId && jobs.find(j => j.id === jobId) && (
+                    <div className="mt-4 flex items-center gap-2 rounded-lg bg-primary/5 px-3 py-2 border border-primary/10">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10">
+                        <Briefcase className="h-3.5 w-3.5 text-primary" />
+                      </div>
+                      <span className="text-xs font-semibold text-primary">
+                        {jobs.find(j => j.id === jobId)?.title} 
+                        {jobs.find(j => j.id === jobId)?.experience ? ` · ${jobs.find(j => j.id === jobId)?.experience}` : ''}
+                      </span>
                     </div>
-                    <p className="text-xs leading-5 text-muted-foreground">PDF or DOCX up to 10MB each</p>
-                    {files.length > 0 && <p className="mt-2 text-sm font-semibold text-foreground bg-muted inline-block px-3 py-1 rounded-full">{files.length} file(s) selected</p>}
+                  )}
+                </div>
+
+                {/* 4. AI Matching */}
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex-1 flex flex-col">
+                  <div className="mb-4 flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base font-semibold text-foreground">AI Matching</h2>
+                      <p className="text-xs text-muted-foreground mt-1">Use the selected job description to evaluate resume relevance.</p>
+                    </div>
+                  </div>
+
+                  <div className="flex-1">
+                    <textarea 
+                      value={jobDescription} 
+                      onChange={e => setJobDescription(e.target.value)} 
+                      disabled={skipAi}
+                      placeholder="Paste job description here..."
+                      className="w-full h-full min-h-[120px] rounded-xl border border-border bg-background p-4 text-sm shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:bg-muted transition-colors resize-none" 
+                    />
+                  </div>
+
+                  <div className="mt-5 flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4">
+                    <div className="relative flex h-5 items-center justify-center">
+                      <input 
+                        type="checkbox" 
+                        id="skipAi" 
+                        checked={skipAi} 
+                        onChange={e => setSkipAi(e.target.checked)}
+                        className="peer h-4 w-4 cursor-pointer appearance-none rounded-sm border border-border bg-background checked:border-primary checked:bg-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all"
+                      />
+                      <Check className="pointer-events-none absolute h-3 w-3 stroke-[3] text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
+                    </div>
+                    <div className="flex flex-col">
+                      <label htmlFor="skipAi" className="text-sm font-semibold text-foreground cursor-pointer select-none">Skip AI Analysis</label>
+                      <span className="text-xs text-muted-foreground mt-0.5">Resume will be parsed without scoring or AI matching.</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <button 
-                type="submit" 
-                disabled={loading || files.length === 0}
-                className="w-full flex justify-center items-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-50"
-              >
-                {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : <><Upload className="mr-2 h-4 w-4" /> Upload & Parse</>}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleManualSubmit} className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
+              {/* Right Column: Upload Area */}
+              <div className="flex flex-col gap-6">
+                <div className="rounded-2xl border border-border bg-card p-6 shadow-sm flex-1 flex flex-col">
+                  <div className="mb-4">
+                    <h2 className="text-base font-semibold text-foreground">Upload Resumes</h2>
+                    <p className="text-xs text-muted-foreground mt-1">Drag & drop candidate resumes.</p>
+                  </div>
+
+                  {/* 5. Dropzone */}
+                  <label className={`relative flex flex-1 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all hover:bg-primary/5 ${files.length === 0 ? 'border-primary/40 bg-primary/5 py-12' : 'border-border bg-muted/20 py-8'} px-6 text-center group`}
+                  >
+                    <input 
+                      ref={fileInputRef} 
+                      type="file" 
+                      multiple 
+                      className="sr-only" 
+                      onChange={e => {
+                         const newFiles = Array.from(e.target.files || []);
+                         setFiles(prev => [...prev, ...newFiles]);
+                      }} 
+                      accept=".pdf,.docx,.doc" 
+                    />
+                    
+                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 mb-4 group-hover:scale-110 transition-transform">
+                      <Upload className="h-6 w-6 text-primary" />
+                    </div>
+                    <h3 className="text-sm font-bold text-foreground">Drop your resumes here</h3>
+                    <p className="mt-1 text-xs text-muted-foreground">or click to browse files from your computer</p>
+                    <div className="mt-6 flex items-center justify-center rounded-lg bg-background border border-border px-5 py-2 text-xs font-semibold shadow-sm group-hover:border-primary/30 transition-colors">
+                      Browse Files
+                    </div>
+                    <p className="mt-5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">PDF, DOCX • Up to 10 MB per file</p>
+                  </label>
+
+                  {/* File List */}
+                  {files.length > 0 && (
+                    <div className="mt-6 flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-1">
+                      <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                        <span>{files.length} file{files.length !== 1 ? 's' : ''} selected</span>
+                        <button type="button" onClick={() => setFiles([])} className="text-destructive hover:underline normal-case tracking-normal">Clear all</button>
+                      </div>
+                      {files.map((file, idx) => (
+                        <div key={idx} className="flex items-center justify-between rounded-xl border border-border bg-background p-2.5 shadow-[0_2px_8px_rgba(0,0,0,0.02)] transition-colors hover:border-border/80">
+                          <div className="flex items-center gap-3 overflow-hidden">
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                              <FileText size={16} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-foreground">{file.name}</p>
+                              <p className="text-xs font-medium text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                            </div>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setFiles(files.filter((_, i) => i !== idx));
+                            }} 
+                            className="ml-4 shrink-0 rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Submit Button */}
+            <button 
+              type="submit" 
+              disabled={loading || files.length === 0}
+              className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-[#7a49fb] px-8 text-base font-bold text-primary-foreground shadow-[0_8px_16px_-6px_rgba(109,40,217,0.4)] transition-all hover:scale-[1.01] active:scale-[0.99] disabled:pointer-events-none disabled:from-muted disabled:to-muted disabled:text-muted-foreground disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            >
+              {loading ? (
+                <><Loader2 className="h-5 w-5 animate-spin" /> Processing Resumes...</>
+              ) : (
+                <><Upload className="h-5 w-5" /> Upload & Parse Resumes</>
+              )}
+            </button>
+          </form>
+        ) : (
+          <div className="rounded-2xl border border-border bg-card p-8 shadow-sm max-w-2xl">
+            {/* 7. Manual Entry (Cleaned up) */}
+            <div className="mb-8 border-b border-border pb-5">
+              <h2 className="text-lg font-bold text-foreground">Manual Candidate Entry</h2>
+              <p className="text-sm text-muted-foreground mt-1">Add a candidate's details directly into the database.</p>
+            </div>
+            <form onSubmit={handleManualSubmit} className="space-y-6">
+              <div className="grid gap-6 sm:grid-cols-2">
                 <div>
-                  <label className="text-sm font-medium">Full Name</label>
-                  <input required value={manualData.name} onChange={e => setManualData({...manualData, name: e.target.value})} className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Full Name</label>
+                  <input required value={manualData.name} onChange={e => setManualData({...manualData, name: e.target.value})} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="John Doe" />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Email</label>
-                  <input required type="email" value={manualData.email} onChange={e => setManualData({...manualData, email: e.target.value})} className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Email Address</label>
+                  <input required type="email" value={manualData.email} onChange={e => setManualData({...manualData, email: e.target.value})} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="john@example.com" />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Phone</label>
-                  <input required value={manualData.phone} onChange={e => setManualData({...manualData, phone: e.target.value})} className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phone Number</label>
+                  <input required value={manualData.phone} onChange={e => setManualData({...manualData, phone: e.target.value})} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="+1 (555) 000-0000" />
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Job</label>
-                  <select value={manualData.job_id} onChange={e => setManualData({...manualData, job_id: e.target.value})} className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm">
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Assign to Job</label>
+                  <select value={manualData.job_id} onChange={e => setManualData({...manualData, job_id: e.target.value})} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80">
                     <option value="">No specific job</option>
                     {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-sm font-medium">Skills (comma separated)</label>
-                  <input value={manualData.skills} onChange={e => setManualData({...manualData, skills: e.target.value})} className="mt-1 w-full rounded-xl border border-border bg-background px-4 py-3 text-sm" placeholder="Python, React, FastApi" />
+                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Key Skills</label>
+                  <input value={manualData.skills} onChange={e => setManualData({...manualData, skills: e.target.value})} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="e.g. Python, React, FastApi" />
                 </div>
               </div>
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full mt-4 flex justify-center items-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-50"
+                className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-primary px-8 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 mt-4"
               >
-                {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : <><Plus className="mr-2 h-4 w-4" /> Add Candidate</>}
+                {loading ? <><Loader2 className="h-5 w-5 animate-spin" /> Saving Candidate...</> : <><Plus className="h-5 w-5" /> Add Candidate Profile</>}
               </button>
             </form>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
