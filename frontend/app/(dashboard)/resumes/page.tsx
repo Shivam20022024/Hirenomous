@@ -119,7 +119,7 @@ export default function ResumesPage() {
       {/* 1. Header */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Resume Database</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">Candidate Profiles</h1>
           <p className="mt-2 text-sm text-muted-foreground">Upload, parse, and organize candidate resumes in one place.</p>
         </div>
         {jobs.length > 0 && (
