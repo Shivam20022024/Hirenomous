@@ -142,8 +142,21 @@ export default function JobsPage() {
                 {job.skills?.length > 4 && <span className="rounded-md bg-muted px-2 py-1 text-[10px] font-medium uppercase tracking-wider">+{job.skills.length - 4}</span>}
               </div>
             </div>
-            <div className="mt-6 border-t border-border pt-4 text-xs text-muted-foreground">
-              Posted on {new Date(job.createdAt).toLocaleDateString()}
+            <div className="mt-6 border-t border-border pt-4">
+              <div className="text-xs text-muted-foreground mb-3">
+                Posted on {new Date(job.createdAt).toLocaleDateString()}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => alert("LinkedIn integration coming soon!")} className="flex-1 rounded-md border border-border py-1.5 text-xs font-medium hover:bg-muted text-muted-foreground hover:text-foreground">
+                  + LinkedIn
+                </button>
+                <button onClick={() => alert("Naukri integration coming soon!")} className="flex-1 rounded-md border border-border py-1.5 text-xs font-medium hover:bg-muted text-muted-foreground hover:text-foreground">
+                  + Naukri
+                </button>
+                <button onClick={() => alert("SharePoint integration coming soon!")} className="flex-1 rounded-md border border-border py-1.5 text-xs font-medium hover:bg-muted text-muted-foreground hover:text-foreground">
+                  + SharePoint
+                </button>
+              </div>
             </div>
           </article>
         )) : (
