@@ -105,6 +105,12 @@ export default function LoginPage() {
             {isLoading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
+
+        <div className="mt-6 border-t border-border pt-4 text-center">
+          <p className="text-xs text-muted-foreground">
+            A product by <span className="font-semibold text-foreground tracking-wide">NOVALANTIS</span>
+          </p>
+        </div>
       </div>
     </div>
   );
