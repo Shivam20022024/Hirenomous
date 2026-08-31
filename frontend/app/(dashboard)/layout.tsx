@@ -55,7 +55,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link key={item.name} href={item.href} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${isActive ? 'bg-accent text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
                 <item.icon size={17} strokeWidth={2.5} />
                 <span>{item.name}</span>
-                {item.name === 'Calling Campaigns' && <span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-[10px]">3</span>}
               </Link>
             );
           })}
