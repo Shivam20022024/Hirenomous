@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Upload, Plus, FileText, X, Check, Loader2 } from 'lucide-react';
+import { Upload, Plus, FileText, X, Check, Loader2, Briefcase } from 'lucide-react';
 import { fetchApi, API_BASE_URL } from '@/lib/api';
 
 export default function ResumesPage() {
