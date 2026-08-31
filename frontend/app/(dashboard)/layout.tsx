@@ -22,7 +22,7 @@ const navigation = [
   { name: 'Jobs', href: '/jobs', icon: Briefcase },
   { name: 'Candidates', href: '/candidates', icon: UsersRound },
   { name: 'Candidate Profiles', href: '/resumes', icon: FileText },
-  { name: 'AI Recruiter', href: '/ai-recruiter', icon: Bot },
+  { name: 'AI Hiring Assistant', href: '/ai-recruiter', icon: Bot },
   { name: 'Calling Campaigns', href: '/campaigns', icon: Phone },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },

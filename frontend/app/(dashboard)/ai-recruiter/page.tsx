@@ -131,7 +131,7 @@ export default function AIRecruiterPage() {
     <div className="mx-auto max-w-[1240px] space-y-6 px-5 py-9 lg:px-8 lg:py-14">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
-          <h1 className="text-3xl font-bold tracking-[-0.06em]">AI Recruiter</h1>
+          <h1 className="text-3xl font-bold tracking-[-0.06em]">AI Hiring Assistant</h1>
           <p className="mt-2 text-sm text-muted-foreground">Configure the AI voice agent for automated initial screening.</p>
         </div>
         <div className="flex gap-2">
@@ -147,7 +147,7 @@ export default function AIRecruiterPage() {
 
       {!jobId ? (
         <div className="rounded-2xl border border-dashed border-border p-12 text-center text-muted-foreground">
-          Select a job from the dropdown above to configure the AI Recruiter.
+          Select a job from the dropdown above to configure the AI Hiring Assistant.
         </div>
       ) : loading && !config ? (
         <div className="p-12 text-center"><div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div></div>
@@ -240,7 +240,7 @@ export default function AIRecruiterPage() {
                 {messages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-6">
                     <MessageSquare size={32} className="mb-4 opacity-20"/>
-                    <p className="text-sm">Type a message below to start chatting with the AI Recruiter configured with these settings.</p>
+                    <p className="text-sm">Type a message below to start chatting with the AI Hiring Assistant configured with these settings.</p>
                   </div>
                 ) : (
                   messages.map((m, i) => (
