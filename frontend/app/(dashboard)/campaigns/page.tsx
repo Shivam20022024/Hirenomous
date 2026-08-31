@@ -1,13 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Phone, Users, CheckCircle, Clock, PlayCircle, Loader2, RefreshCw, Trash2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Phone, Users, CheckCircle, Clock, PlayCircle, Loader2, RefreshCw, Trash2, ChevronDown } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 
 export default function CampaignsPage() {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
-  const [selectedJob, setSelectedJob] = useState('all');
+  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
@@ -34,13 +46,25 @@ export default function CampaignsPage() {
   }, []);
 
   const handleCallAll = async () => {
-    if (!confirm('Are you sure you want to initiate AI calls to all shortlisted candidates?')) return;
+    if (!confirm('Are you sure you want to initiate AI calls to shortlisted candidates for the selected jobs?')) return;
     
     setActionLoading(true);
     try {
-      const url = selectedJob !== 'all' ? `/bolna/call-shortlisted?job_id=${selectedJob}` : '/bolna/call-shortlisted';
-      const res = await fetchApi(url, { method: 'POST' });
-      alert(`Successfully initiated ${res.called_count} calls.`);
+      const res = await fetchApi('/bolna/call-shortlisted', { 
+        method: 'POST',
+        body: JSON.stringify(selectedJobs.length > 0 ? { job_ids: selectedJobs } : {}) 
+      });
+      
+      let reportMessage = `Total calls queued: ${res.called_count}\n`;
+      if (res.results && res.results.length > 0) {
+        reportMessage += `\nResults by Job:\n`;
+        res.results.forEach((r: any) => {
+          reportMessage += `- ${r.job_title}: Queued ${r.calls_queued}/${r.shortlisted_found}`;
+          if (r.failed > 0) reportMessage += ` (Failed: ${r.failed})`;
+          reportMessage += '\n';
+        });
+      }
+      alert(reportMessage);
       loadData();
     } catch (err: any) {
       alert(`Failed to call: ${err.message}`);
@@ -75,7 +99,7 @@ export default function CampaignsPage() {
     }
   };
 
-  const filteredCandidates = selectedJob === 'all' ? candidates : candidates.filter(c => c.job_id === selectedJob);
+  const filteredCandidates = selectedJobs.length === 0 ? candidates : candidates.filter(c => selectedJobs.includes(c.job_id));
   const pendingCalls = filteredCandidates.filter(c => !['calling', 'completed', 'interested', 'not_interested', 'callback_required', 'selected', 'hired'].includes(c.status?.toLowerCase()));
   const completedCalls = filteredCandidates.filter(c => ['completed', 'interested', 'not_interested', 'callback_required', 'selected', 'hired'].includes(c.status?.toLowerCase()) || c.call_status === 'completed');
   const activeCalls = filteredCandidates.filter(c => c.status === 'calling');
@@ -121,16 +145,37 @@ export default function CampaignsPage() {
           <p className="text-sm text-muted-foreground">Manage and track automated AI screening calls.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={selectedJob}
-            onChange={(e) => setSelectedJob(e.target.value)}
-            className="h-11 rounded-xl border-2 border-slate-800 bg-card px-4 text-sm font-extrabold text-foreground"
-          >
-            <option value="all">All Postings</option>
-            {jobs.map(job => (
-              <option key={job.id} value={job.id}>{job.title}</option>
-            ))}
-          </select>
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center justify-between h-11 rounded-xl border-2 border-slate-800 bg-card px-4 text-sm font-extrabold text-foreground min-w-[200px]"
+            >
+              <span>{selectedJobs.length === 0 ? 'All Postings' : `${selectedJobs.length} Job${selectedJobs.length > 1 ? 's' : ''} Selected`}</span>
+              <ChevronDown size={16} className="ml-2" />
+            </button>
+            
+            {isDropdownOpen && (
+              <div className="absolute top-12 left-0 z-50 w-64 rounded-xl border-2 border-slate-800 bg-card p-2 shadow-xl max-h-[300px] overflow-y-auto">
+                <div className="flex gap-2 mb-2 pb-2 border-b border-border px-2">
+                  <button onClick={() => setSelectedJobs(jobs.map(j => j.id))} className="text-xs font-semibold text-primary hover:underline">Select All</button>
+                  <button onClick={() => setSelectedJobs([])} className="text-xs font-semibold text-muted-foreground hover:underline">Clear All</button>
+                </div>
+                {jobs.map(job => (
+                  <label key={job.id} className="flex items-center gap-2 p-2 hover:bg-muted rounded-md cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedJobs.includes(job.id)}
+                      onChange={() => {
+                        setSelectedJobs(prev => prev.includes(job.id) ? prev.filter(id => id !== job.id) : [...prev, job.id]);
+                      }}
+                      className="rounded border-gray-300"
+                    />
+                    <span className="text-sm font-bold line-clamp-1 text-foreground">{job.title}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
           <button 
             onClick={handleSyncAllActive} 
             disabled={actionLoading || activeCalls.length === 0} 
@@ -149,11 +194,11 @@ export default function CampaignsPage() {
           </button>
           <button 
             onClick={handleCallAll} 
-            disabled={actionLoading || selectedJob === 'all' || pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length === 0} 
+            disabled={actionLoading || pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length === 0} 
             className="flex h-11 items-center justify-center rounded-xl border-2 border-primary bg-primary px-4 text-sm font-extrabold text-primary-foreground shadow-lg hover:opacity-90 disabled:opacity-75 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <PlayCircle size={16} className="mr-2" />} 
-            Call All Shortlisted ({selectedJob === 'all' ? 'Select a job' : pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length})
+            Call All Shortlisted ({pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length})
           </button>
         </div>
       </div>

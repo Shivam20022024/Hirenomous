@@ -125,12 +125,12 @@ export default function CandidatesPage() {
 
   return (
     <div className="mx-auto max-w-[1240px] space-y-6 px-5 py-9 lg:px-8 lg:py-14">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div>
-          <h1 className="text-3xl font-bold tracking-[-0.06em]">Candidates</h1>
-          <p className="mt-2 text-sm text-muted-foreground">View and manage all candidates across your organization.</p>
+      <div className="flex flex-wrap items-center justify-between gap-5">
+        <div className="flex flex-row items-baseline gap-4">
+          <h1 className="text-3xl font-bold tracking-[-0.06em] whitespace-nowrap">Candidates</h1>
+          <p className="text-sm text-muted-foreground whitespace-nowrap">View and manage all candidates across your organization.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <label className="flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm text-muted-foreground">
             <Search size={16}/>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search candidates" className="bg-transparent outline-none placeholder:text-muted-foreground"/>

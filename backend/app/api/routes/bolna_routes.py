@@ -7,8 +7,9 @@ from app.api.deps import get_context_organization_id
 import logging
 from datetime import datetime
 from pydantic import BaseModel
-from typing import Optional
-
+from typing import Optional, List
+class CallShortlistedRequest(BaseModel):
+    job_ids: Optional[List[str]] = []
 class BolnaCallbackRequest(BaseModel):
     candidate_id: str
     callback_date: str
@@ -102,17 +103,34 @@ async def stop_candidate_call(candidate_id: str):
     return {"status": "success", "message": "Call stopped/cancelled"}
 
 @router.post("/call-shortlisted")
-async def call_shortlisted(job_id: Optional[str] = None, org_id: str = Depends(get_context_organization_id)):
+async def call_shortlisted(request: Optional[CallShortlistedRequest] = None, org_id: str = Depends(get_context_organization_id)):
     """Initiates Bolna.ai calls for all shortlisted candidates."""
     db = get_db()
     query = {"resume_score": {"$gte": 70}, "status": "shortlisted", "organization_id": org_id}
-    if job_id:
-        query["job_id"] = job_id
+    
+    if request and request.job_ids:
+        query["job_id"] = {"$in": request.job_ids}
+        
     shortlisted = await db.candidates.find(query).to_list(length=100)
     
     called_ids = []
     called_phones = {} # Maps phone number to bolna_call_id
+    results_by_job = {}
+    
     for candidate in shortlisted:
+        job_id = candidate.get("job_id", "unknown")
+        job_title = candidate.get("role", "Candidate")
+        
+        if job_id not in results_by_job:
+            results_by_job[job_id] = {
+                "job_title": job_title,
+                "shortlisted_found": 0,
+                "calls_queued": 0,
+                "failed": 0
+            }
+            
+        results_by_job[job_id]["shortlisted_found"] += 1
+        
         try:
             phone = candidate.get("phone")
             if not phone:
@@ -130,17 +148,19 @@ async def call_shortlisted(job_id: Optional[str] = None, org_id: str = Depends(g
                         "call_started_at": datetime.utcnow(),
                         "startedAt": datetime.utcnow().isoformat(),
                         "last_interaction": datetime.utcnow(),
-                        "job_role": candidate.get("role") or "Candidate"
+                        "job_role": job_title
                     }}
                 )
+                results_by_job[job_id]["calls_queued"] += 1
                 continue
 
             res = await BolnaService.initiate_bolna_call(
                 candidate_id=candidate["id"], 
                 phone_number=phone,
                 candidate_name=candidate.get("name", ""),
-                job_title=candidate.get("role", "Candidate")
+                job_title=job_title
             )
+            
             if res["status"] == "success":
                 called_ids.append(candidate["id"])
                 bolna_call_id = res["data"].get("call_id") or res["data"].get("execution_id") or res["data"].get("id")
@@ -154,14 +174,25 @@ async def call_shortlisted(job_id: Optional[str] = None, org_id: str = Depends(g
                         "call_started_at": datetime.utcnow(),
                         "startedAt": datetime.utcnow().isoformat(),
                         "last_interaction": datetime.utcnow(),
-                        "job_role": candidate.get("role") or "Candidate"
+                        "job_role": job_title
                     }}
                 )
+                results_by_job[job_id]["calls_queued"] += 1
+            else:
+                results_by_job[job_id]["failed"] += 1
 
         except Exception as e:
             logger.error(f"Failed to call {candidate['id']}: {str(e)}")
+            results_by_job[job_id]["failed"] += 1
 
-    return {"status": "success", "called_count": len(called_ids), "called_ids": called_ids}
+    return {
+        "status": "success", 
+        "called_count": len(called_ids), 
+        "called_ids": called_ids,
+        "results": [
+            {"job_id": k, **v} for k, v in results_by_job.items()
+        ]
+    }
 
 @router.post("/webhook")
 async def bolna_webhook(request: Request):
