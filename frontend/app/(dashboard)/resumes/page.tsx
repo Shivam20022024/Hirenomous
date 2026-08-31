@@ -310,7 +310,7 @@ export default function ResumesPage() {
             <button 
               type="submit" 
               disabled={loading || files.length === 0}
-              className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-[#7a49fb] px-8 text-base font-bold text-primary-foreground shadow-[0_8px_16px_-6px_rgba(109,40,217,0.4)] transition-all hover:scale-[1.01] active:scale-[0.99] disabled:pointer-events-none disabled:from-muted disabled:to-muted disabled:text-muted-foreground disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-[#7a49fb] px-8 text-base font-bold text-primary-foreground shadow-[0_8px_16px_-6px_rgba(109,40,217,0.4)] transition-all hover:scale-[1.01] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             >
               {loading ? (
                 <><Loader2 className="h-5 w-5 animate-spin" /> Processing Resumes...</>
@@ -355,7 +355,7 @@ export default function ResumesPage() {
               <button 
                 type="submit" 
                 disabled={loading}
-                className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-primary px-8 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 mt-4"
+                className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-primary px-8 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:opacity-90 disabled:opacity-50 disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 mt-4"
               >
                 {loading ? <><Loader2 className="h-5 w-5 animate-spin" /> Saving Candidate...</> : <><Plus className="h-5 w-5" /> Add Candidate Profile</>}
               </button>
