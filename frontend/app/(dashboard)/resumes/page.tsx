@@ -310,7 +310,7 @@ export default function ResumesPage() {
             <button 
               type="submit" 
               disabled={loading || files.length === 0}
-              className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-[#7a49fb] px-8 text-lg font-extrabold text-yellow-300 shadow-[0_8px_16px_-6px_rgba(109,40,217,0.4)] transition-all hover:scale-[1.01] active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 tracking-wide"
+              className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-[#7a49fb] px-8 text-lg font-bold text-white shadow-[0_8px_16px_-6px_rgba(109,40,217,0.4)] transition-all hover:scale-[1.01] active:scale-[0.99] disabled:pointer-events-none disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 tracking-wide"
             >
               {loading ? (
                 <><Loader2 className="h-5 w-5 animate-spin" /> Processing Resumes...</>
