@@ -178,6 +178,8 @@ export default function DashboardPage() {
       <section className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-[1fr_1fr_auto_auto] md:items-end">
         <label className="eyebrow">Date range
           <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="mt-2 block h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium">
+            <option value="today">Today</option>
+            <option value="this_week">This Week</option>
             <option value="this_month">This Month</option>
             <option value="last_month">Last Month</option>
             <option value="this_quarter">This Quarter</option>

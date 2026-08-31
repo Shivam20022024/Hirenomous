@@ -145,7 +145,22 @@ export default function ResumesPage() {
             <form onSubmit={handleUploadSubmit} className="space-y-6">
               <div>
                 <label className="block text-sm font-medium mb-2">Select Job (Optional)</label>
-                <select value={jobId} onChange={e => setJobId(e.target.value)} className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none">
+                <select 
+                  value={jobId} 
+                  onChange={e => {
+                    const newJobId = e.target.value;
+                    setJobId(newJobId);
+                    if (newJobId) {
+                      const selectedJob = jobs.find(j => j.id === newJobId);
+                      if (selectedJob && selectedJob.description) {
+                        setJobDescription(selectedJob.description);
+                      }
+                    } else {
+                      setJobDescription('');
+                    }
+                  }} 
+                  className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm focus:border-primary focus:outline-none"
+                >
                   <option value="">No specific job</option>
                   {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
                 </select>
