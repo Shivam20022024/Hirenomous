@@ -14,7 +14,7 @@ async def main():
     # Update the user
     result = await db.users.update_one(
         {"name": "shubam kumar"},
-        {"$set": {"company": "Novalantis"}}
+        {"$set": {"organization_name": "Novalantis"}}
     )
     
     if result.modified_count > 0:
@@ -26,7 +26,7 @@ async def main():
         user = await db.users.find_one({"name": {"$regex": "shubam", "$options": "i"}})
         if user:
             print(f"Found user with similar name: {user.get('name')}")
-            res = await db.users.update_one({"_id": user["_id"]}, {"$set": {"company": "Novalantis"}})
+            res = await db.users.update_one({"_id": user["_id"]}, {"$set": {"organization_name": "Novalantis"}})
             print(f"Updated similar user. Modified: {res.modified_count}")
         else:
             print("Could not find user 'shubam kumar' in the database.")
