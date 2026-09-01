@@ -51,7 +51,7 @@ const METRIC_LABELS: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const [dateRange, setDateRange] = useState('this_month');
+  const [dateRange, setDateRange] = useState('last_30_days');
   const [jobId, setJobId] = useState('');
   const [jobs, setJobs] = useState<any[]>([]);
   
@@ -179,7 +179,9 @@ export default function DashboardPage() {
         <label className="eyebrow">Date range
           <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="mt-2 block h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium">
             <option value="today">Today</option>
+            <option value="last_7_days">Last 7 Days</option>
             <option value="this_week">This Week</option>
+            <option value="last_30_days">Last 30 Days</option>
             <option value="this_month">This Month</option>
             <option value="last_month">Last Month</option>
             <option value="this_quarter">This Quarter</option>
@@ -195,7 +197,7 @@ export default function DashboardPage() {
         <button onClick={loadDashboardData} className="h-11 rounded-xl bg-foreground px-5 text-sm font-semibold text-background hover:opacity-90">
           Apply filters
         </button>
-        <button onClick={() => { setDateRange('this_month'); setJobId(''); }} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold text-muted-foreground hover:bg-muted">
+        <button onClick={() => { setDateRange('last_30_days'); setJobId(''); }} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold text-muted-foreground hover:bg-muted">
           Reset
         </button>
       </section>

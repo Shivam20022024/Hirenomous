@@ -38,6 +38,11 @@ def get_date_ranges(date_range: str, custom_start: Optional[str] = None, custom_
         current_query = {"$gte": start}
         prev_start = start - timedelta(days=7)
         prev_query = {"$gte": prev_start, "$lt": start}
+    elif date_range == "last_30_days":
+        start = (now - timedelta(days=30)).replace(hour=0, minute=0, second=0, microsecond=0)
+        current_query = {"$gte": start}
+        prev_start = start - timedelta(days=30)
+        prev_query = {"$gte": prev_start, "$lt": start}
     elif date_range == "this_month":
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         current_query = {"$gte": start}
