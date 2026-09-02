@@ -12,8 +12,10 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+from fastapi.concurrency import run_in_threadpool
+
+async def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return await run_in_threadpool(pwd_context.verify, plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)

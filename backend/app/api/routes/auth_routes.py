@@ -39,7 +39,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-    if not verify_password(form_data.password, user["hashed_password"]):
+    if not await verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -68,6 +68,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
     # We return the standard OAuth2 token response
     return {"access_token": access_token, "token_type": "bearer", "user": user_response}
+
 
 @router.post("/forgot-password")
 async def forgot_password(request: ForgotPasswordRequest):
