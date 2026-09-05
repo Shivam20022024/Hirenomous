@@ -220,12 +220,20 @@ CANDIDATE ANSWER (speech-to-text, may contain transcription noise)
 
 Follow-up questions still allowed in this interview: {followups_remaining}
 
+Decide `ask_followup` = true ONLY when ALL of these hold:
+- follow-ups remain (the number above is > 0);
+- the answer contained a real, on-topic attempt worth probing further;
+- a specific, DIFFERENT follow-up question would surface new signal.
+Set `ask_followup` = false when the answer is empty, off-topic, unintelligible,
+a refusal, or already thorough — in those cases just move on. The follow-up, if
+any, must be a NEW question, not a rephrasing of the question asked.
+
 Return STRICT JSON:
 {{
   "score": 0-100,                         // quality of THIS answer only
   "feedback": "one sentence, factual",
-  "ask_followup": true|false,             // only true if a follow-up adds real signal AND follow-ups remain
-  "followup_text": "the follow-up question, or null"
+  "ask_followup": true|false,
+  "followup_text": "a new, specific follow-up question, or null"
 }}
 """
     try:

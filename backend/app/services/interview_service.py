@@ -554,79 +554,98 @@ class InterviewService:
         if not pending:
             raise HTTPException(status_code=409, detail="No question is awaiting an answer. Call /start first.")
 
-        # Idempotency: ignore a duplicate submission for a question already answered.
-        already = [a for a in (interview.get("answers") or []) if a.get("question_id") == pending["id"]]
-        if already:
-            logger.info(f"Duplicate turn for interview {interview['id']} q {pending['id']} — ignored")
-            return await InterviewService._question_payload(interview, resume=True)
-
-        # 1. Obtain the answer text (STT for audio, or a typed fallback).
-        transcript_text = ""
-        audio_ref = None
-        transcribed = False
-        if audio is not None:
-            audio_ref = await InterviewService._save_answer_audio(interview["id"], pending["id"], audio)
-            transcript_text = await InterviewService._transcribe(audio_ref)
-            transcribed = bool(transcript_text)
-        elif answer_text:
-            transcript_text = answer_text.strip()
-            transcribed = True
-        if not transcript_text:
-            transcript_text = "(no audible answer was captured)"
-
+        plan = interview.get("question_plan") or []
+        # Navigation walks ONLY the fixed base plan; follow-ups are appended to
+        # `question_plan` for the record but are never selected by `plan_index`.
+        base_questions = [q for q in plan if not q.get("is_followup")]
+        base_count = len(base_questions)
+        plan_index = min(int(progress.get("plan_index", base_count)), base_count)
+        followups_used = int(progress.get("followups_used", 0))
         now = datetime.utcnow()
-        answer_entry = {
-            "question_id": pending["id"],
-            "answer_text": transcript_text,
-            "audio_ref": audio_ref,
-            "transcribed": transcribed,
-            "score": None,
-            "feedback": None,
-            "answered_at": now,
-        }
-        await db.interviews.update_one(
-            {"id": interview["id"]},
-            {"$push": {"answers": answer_entry, "transcript": {"role": "candidate", "text": transcript_text, "ts": now}},
-             "$set": {"updated_at": now}},
+
+        # Has the current pending question already been answered? This is either a
+        # duplicate submission (network retry) or a recovered stuck state — in both
+        # cases do NOT re-record; just advance to the next base question.
+        already_answered = any(
+            a.get("question_id") == pending["id"] and a.get("answer_text")
+            for a in (interview.get("answers") or [])
         )
 
-        # 2. Analyse the answer + decide follow-up.
-        followups_remaining = max(0, settings.INTERVIEW_MAX_FOLLOWUPS - int(progress.get("followups_used", 0)))
-        job = None
-        if interview.get("job_id"):
-            job = await db.jobs_board.find_one({"id": interview["job_id"]})
-        analysis = await ipe.analyze_answer(
-            job=job,
-            question_text=pending["text"],
-            question_target_skills=pending.get("target_skills", []),
-            answer_text=transcript_text,
-            followups_remaining=followups_remaining,
-        )
-        await db.interviews.update_one(
-            {"id": interview["id"], "answers.question_id": pending["id"]},
-            {"$set": {"answers.$.score": analysis.get("score"), "answers.$.feedback": analysis.get("feedback")}},
-        )
+        analysis = {"ask_followup": False, "followup_text": None}
+        if not already_answered:
+            # 1. Obtain the answer text (STT for audio, or a typed fallback).
+            transcript_text = ""
+            audio_ref = None
+            transcribed = False
+            if audio is not None:
+                audio_ref = await InterviewService._save_answer_audio(interview["id"], pending["id"], audio)
+                transcript_text = await InterviewService._transcribe(audio_ref)
+                transcribed = bool(transcript_text)
+            elif answer_text:
+                transcript_text = answer_text.strip()
+                transcribed = True
+            if not transcript_text:
+                transcript_text = "(no audible answer was captured)"
+
+            answer_entry = {
+                "question_id": pending["id"],
+                "answer_text": transcript_text,
+                "audio_ref": audio_ref,
+                "transcribed": transcribed,
+                "score": None,
+                "feedback": None,
+                "answered_at": now,
+            }
+            await db.interviews.update_one(
+                {"id": interview["id"]},
+                {"$push": {"answers": answer_entry, "transcript": {"role": "candidate", "text": transcript_text, "ts": now}},
+                 "$set": {"updated_at": now}},
+            )
+
+            # 2. Analyse the answer + decide whether ONE follow-up would help.
+            followups_remaining = max(0, settings.INTERVIEW_MAX_FOLLOWUPS - followups_used)
+            job = None
+            if interview.get("job_id"):
+                job = await db.jobs_board.find_one({"id": interview["job_id"]})
+            analysis = await ipe.analyze_answer(
+                job=job,
+                question_text=pending["text"],
+                question_target_skills=pending.get("target_skills", []),
+                answer_text=transcript_text,
+                followups_remaining=followups_remaining,
+            )
+            await db.interviews.update_one(
+                {"id": interview["id"], "answers.question_id": pending["id"]},
+                {"$set": {"answers.$.score": analysis.get("score"), "answers.$.feedback": analysis.get("feedback")}},
+            )
+        else:
+            logger.info(f"Interview {interview['id']}: pending q {pending['id']} already answered — advancing")
 
         # 3. Determine the next question.
-        plan = interview.get("question_plan") or []
-        plan_index = int(progress.get("plan_index", len(plan)))
-        followups_used = int(progress.get("followups_used", 0))
+        #    - At most ONE follow-up per base question (never a follow-up on a follow-up),
+        #      and never more than INTERVIEW_MAX_FOLLOWUPS overall.
+        can_followup = (
+            not already_answered
+            and not pending.get("is_followup")
+            and followups_used < settings.INTERVIEW_MAX_FOLLOWUPS
+            and analysis.get("ask_followup")
+            and analysis.get("followup_text")
+        )
 
         next_q = None
-        if analysis.get("ask_followup") and analysis.get("followup_text"):
-            parent_id = pending.get("parent_question_id") or pending["id"]
+        if can_followup:
             next_q = InterviewQuestion(
                 text=analysis["followup_text"],
                 question_type="follow_up",
                 sequence=pending.get("sequence", 0),
                 target_skills=pending.get("target_skills", []),
                 is_followup=True,
-                parent_question_id=parent_id,
+                parent_question_id=pending["id"],
             ).model_dump()
             followups_used += 1
             await db.interviews.update_one({"id": interview["id"]}, {"$push": {"question_plan": next_q}})
-        elif plan_index < len(plan):
-            next_q = plan[plan_index]
+        elif plan_index < base_count:
+            next_q = base_questions[plan_index]
             plan_index += 1
 
         if not next_q:
@@ -769,16 +788,15 @@ class InterviewService:
     # ------------------------------------------------------------------
     @staticmethod
     async def _question_payload(interview: dict, resume: bool = False) -> dict:
-        pending = (interview.get("progress") or {}).get("pending_question")
+        progress = interview.get("progress") or {}
+        pending = progress.get("pending_question")
         if not pending:
             return {"done": True, "message": "No further questions."}
         plan = interview.get("question_plan") or []
         base_total = _base_question_count(plan)
-        answered_base = len({
-            a["question_id"] for a in (interview.get("answers") or [])
-            for q in plan if q["id"] == a["question_id"] and not q.get("is_followup")
-        })
-        current_number = min(base_total, answered_base + 1) if not pending.get("is_followup") else answered_base
+        # `plan_index` points at the NEXT base question; the current base question is
+        # therefore `plan_index` (1-based). Follow-ups keep the same number.
+        current_number = min(base_total, max(1, int(progress.get("plan_index", 1))))
 
         audio_url = None
         try:
