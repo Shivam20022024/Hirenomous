@@ -131,21 +131,21 @@ export default function CandidatesPage() {
           <p className="text-sm text-muted-foreground whitespace-nowrap">View and manage all candidates across your organization.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 text-sm text-muted-foreground">
-            <Search size={16}/>
+          <label className="flex h-11 items-center gap-2 rounded-xl border-2 border-primary/30 bg-primary/5 px-3 text-sm text-foreground focus-within:border-primary">
+            <Search size={16} className="text-primary"/>
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search candidates" className="bg-transparent outline-none placeholder:text-muted-foreground"/>
           </label>
-          <select value={jobId} onChange={e => setJobId(e.target.value)} className="h-11 rounded-xl border border-border bg-card px-3 text-sm text-muted-foreground outline-none">
+          <select value={jobId} onChange={e => setJobId(e.target.value)} className="h-11 rounded-xl border-2 border-primary/30 bg-primary/5 px-3 text-sm font-semibold text-primary outline-none">
             <option value="">All Jobs</option>
             {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
           </select>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="h-11 rounded-xl border border-border bg-card px-3 text-sm text-muted-foreground outline-none">
+          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="h-11 rounded-xl border-2 border-primary/30 bg-primary/5 px-3 text-sm font-semibold text-primary outline-none">
             <option value="">All Statuses</option>
             <option value="INTERESTED">Interested</option>
             <option value="CALLBACK_REQUIRED">Callback Required</option>
             <option value="NOT_INTERESTED">Not Interested</option>
           </select>
-          <button onClick={handleSendEmail} disabled={actionLoading} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-foreground shadow-sm hover:bg-muted disabled:opacity-50">
+          <button onClick={handleSendEmail} disabled={actionLoading} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/5 px-4 text-sm font-bold text-primary shadow-sm hover:bg-primary/10 disabled:opacity-50">
             {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <Mail size={16} className="mr-2" />} Email Interested
           </button>
           <button onClick={handleExport} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90">
@@ -157,7 +157,7 @@ export default function CandidatesPage() {
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-muted/50 text-xs font-semibold text-muted-foreground">
+            <thead className="border-b-2 border-primary/30 bg-primary/10 text-xs font-bold uppercase tracking-wider text-primary">
               <tr>
                 <th className="px-6 py-4">Candidate</th>
                 <th className="px-6 py-4">Role</th>

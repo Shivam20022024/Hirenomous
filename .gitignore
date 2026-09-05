@@ -21,3 +21,6 @@ coverage.xml
 htmlcov/
 .vscode/
 .idea/
+
+# Build artifacts
+*.tsbuildinfo

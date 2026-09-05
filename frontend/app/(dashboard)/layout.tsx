@@ -52,7 +52,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {navigation.map((item) => {
             const isActive = pathname.startsWith(item.href);
             return (
-              <Link key={item.name} href={item.href} className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold transition-colors ${isActive ? 'bg-accent text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
+              <Link key={item.name} href={item.href} className={`flex w-full items-center gap-3 rounded-lg border-l-4 px-3 py-2.5 text-sm font-black transition-colors ${isActive ? 'border-primary bg-primary/10 text-primary shadow-sm' : 'border-transparent text-muted-foreground hover:bg-muted hover:text-foreground'}`}>
                 <item.icon size={17} strokeWidth={2.5} />
                 <span>{item.name}</span>
               </Link>
@@ -61,11 +61,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
         <div className="border-t border-border p-5">
           <div className="flex items-center gap-3 relative">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-600">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">
               {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold">{user?.name || 'User'}</p>
+              <p className="truncate text-sm font-black">{user?.name || 'User'}</p>
               <p className="truncate text-xs text-muted-foreground">{user?.email || 'user@example.com'}</p>
             </div>
             <button onClick={() => setDropdownOpen(!dropdownOpen)}>
@@ -97,7 +97,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <p className="text-sm font-semibold">{user?.name || 'User'}</p>
               <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground">{user?.organization_name || 'Admin'}</p>
             </div>
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted font-bold text-muted-foreground">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">
                {user?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
           </div>

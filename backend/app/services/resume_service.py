@@ -115,7 +115,7 @@ class ResumeService:
         if cls._client is None or cls._client.is_closed:
             cls._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(60.0, connect=10.0),
-                limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+                limits=httpx.Limits(max_keepalive_connections=15, max_connections=25)
             )
         return cls._client
 
@@ -127,35 +127,46 @@ class ResumeService:
             cls._client = None
 
     @classmethod
-    async def parse_resume_with_gpt(cls, text: str):
+    async def parse_and_score_resume_with_gpt(cls, text: str, job_description: str):
+        """Extracts candidate info AND scores it against the job description in a
+        single OpenAI call. Combining what used to be two sequential round-trips
+        (parse, then score) into one roughly halves per-resume latency and API cost."""
         headers = {
             "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
             "Content-Type": "application/json"
         }
         prompt = f"""
-        Extract candidate information from the following resume text. 
-        Return it strictly as a JSON object with:
+        You are an expert HR recruiter. Extract the candidate's information from the resume text below,
+        AND compare it against the job description to score their fit.
+        Return it strictly as a single JSON object with:
         {{
             "name": "Full Name",
             "email": "Email Address",
             "phone": "Phone Number",
             "skills": ["Skill 1", "Skill 2", ...],
             "experience_summary": "Short summary of experience",
-            "total_experience": "X years"
+            "total_experience": "X years",
+            "score": 85,
+            "missing_skills": ["Skill X", "Skill Y"],
+            "reason": "Explain why this candidate is or isn't a good fit for the job description.",
+            "role": "Short Job Title (e.g. AI Engineer Intern)"
         }}
-        
+
+        Job Description:
+        {job_description}
+
         Resume text:
         {text[:4000]}
         """
         payload = {
-            "model": "gpt-4o-mini", 
+            "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": prompt}],
             "response_format": {"type": "json_object"}
         }
-        
+
         client = await cls.get_client()
         try:
-            logger.info("Calling OpenAI API for resume parsing...")
+            logger.info("Calling OpenAI API for combined resume parsing + scoring...")
             response = await client.post(
                 f"{settings.OPENAI_API_BASE}/chat/completions",
                 headers=headers,
@@ -174,104 +185,34 @@ class ResumeService:
             raise Exception(f"Failed to communicate with OpenAI: {str(e)}")
 
     @classmethod
-    async def score_resume_with_gpt(cls, resume_data: dict, job_description: str):
-        headers = {
-            "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        prompt = f"""
-        You are an expert HR recruiter. Compare the following candidate resume data with the job description.
-        Provide a match score (0-100), a list of missing skills compared to the JD, a brief reason, and the title of the role being applied for.
-        Return it strictly as a JSON object with:
-        {{
-            "score": 85,
-            "missing_skills": ["Skill X", "Skill Y"],
-            "reason": "Explain why this candidate is or isn't a good fit.",
-            "role": "Short Job Title (e.g. AI Engineer Intern)"
-        }}
-
-        Job Description:
-        {job_description}
-
-        Candidate Data:
-        {json.dumps(resume_data)}
-        """
-
-        payload = {
-            "model": "gpt-4o-mini",
-            "messages": [{"role": "user", "content": prompt}],
-            "response_format": {"type": "json_object"}
-        }
-        
-        client = await cls.get_client()
-        try:
-            logger.info("Calling OpenAI API for resume scoring...")
-            response = await client.post(
-                f"{settings.OPENAI_API_BASE}/chat/completions",
-                headers=headers,
-                json=payload
-            )
-            response.raise_for_status()
-            data = response.json()
-            content = data["choices"][0]["message"]["content"]
-            return content
-        except httpx.HTTPStatusError as e:
-            logger.error(f"OpenAI Scoring API status error ({e.response.status_code}): {e.response.text}")
-            raise Exception(f"OpenAI Scoring error: {e.response.status_code}")
-        except Exception as e:
-            logger.error(f"OpenAI Scoring API call failed: {str(e)}")
-            raise Exception(f"Failed to communicate with OpenAI for scoring: {str(e)}")
-
-    @classmethod
     async def process_resume(cls, text: str, job_description: str):
         request_id = str(uuid.uuid4())[:8]
         parsing_failed = False
         try:
-            # 1. Parse with GPT
-            logger.info(f"[{request_id}] AI scoring started - Parsing phase...")
+            logger.info(f"[{request_id}] AI processing started (combined parse + score call)...")
             try:
-                parsed_raw = await cls.parse_resume_with_gpt(text)
-                parsed_data = clean_json_response(parsed_raw)
+                raw = await cls.parse_and_score_resume_with_gpt(text, job_description)
+                combined_data = clean_json_response(raw)
             except Exception as e:
-                logger.error(f"[{request_id}] Phase 1 (Parsing) failed: {str(e)}")
-                # logger.debug(traceback.format_exc())
+                logger.error(f"[{request_id}] Combined parse+score call failed: {str(e)}")
                 parsing_failed = True
-                parsed_data = fallback_parse_resume_text(text)
-            
-            # Validation: Ensure basic fields exist
-            if not parsed_data.get("name") or parsed_data.get("name") == "Unknown":
-                parsed_data["name"] = "Candidate"
-
-            logger.info(f"[{request_id}] Phase 1 complete. Parsing Failed: {parsing_failed}")
-            
-            # 2. Score with GPT
-            # CRITICAL: If parsing failed, scoring will likely return 0 or garbage.
-            # We skip Phase 2 if Phase 1 failed to avoid the "0% score" bug.
-            if not parsing_failed:
-                logger.info(f"[{request_id}] Starting OpenAI scoring phase for {parsed_data.get('name')}...")
-                try:
-                    scored_raw = await cls.score_resume_with_gpt(parsed_data, job_description)
-                    scored_data = clean_json_response(scored_raw)
-                except Exception as e:
-                    logger.error(f"[{request_id}] Phase 2 (Scoring) failed: {str(e)}")
-                    scored_data = {
-                        "score": 50,
-                        "missing_skills": [],
-                        "reason": "Fallback score assigned due to OpenAI scoring failure."
-                    }
-            else:
-                logger.warning(f"[{request_id}] Skipping OpenAI scoring due to Phase 1 failure.")
-                scored_data = {
+                combined_data = {
+                    **fallback_parse_resume_text(text),
                     "score": 50.0,
                     "missing_skills": [],
-                    "reason": "Candidate requires manual review (Deep parsing could not be completed)."
+                    "reason": "Candidate requires manual review (AI parsing/scoring could not be completed).",
+                    "role": "AI Engineer Intern"
                 }
-            
-            logger.info(f"[{request_id}] AI scoring completed. Raw Score: {scored_data.get('score')}")
-            
-            # 3. Normalize Keys and Merge
+
+            # Validation: Ensure basic fields exist
+            if not combined_data.get("name") or combined_data.get("name") == "Unknown":
+                combined_data["name"] = "Candidate"
+
+            logger.info(f"[{request_id}] AI processing complete. Parsing Failed: {parsing_failed}")
+
+            # Normalize Keys
             normalized_score = 50.0 # Default fallback
-            for k, v in scored_data.items():
+            for k, v in combined_data.items():
                 if "score" in k.lower():
                     try:
                         # Handle strings like "85%"
@@ -280,24 +221,20 @@ class ResumeService:
                         break
                     except:
                         continue
-            
+
             # Safety check: if normalization somehow resulted in 0 but it was a fallback situation
             if parsing_failed and normalized_score == 0:
                 normalized_score = 50.0
 
-            normalized_reason = scored_data.get("reason", "No reason provided.")
-            missing_skills = scored_data.get("missing_skills", [])
-            
             final_result = {
-                **parsed_data,
+                **combined_data,
                 "score": normalized_score,
-                "missing_skills": missing_skills,
-                "reason": normalized_reason,
-                "role": scored_data.get("role", "AI Engineer Intern"),
-                "summary": parsed_data.get("experience_summary", "No summary available.")
+                "missing_skills": combined_data.get("missing_skills", []),
+                "reason": combined_data.get("reason", "No reason provided."),
+                "role": combined_data.get("role", "AI Engineer Intern"),
+                "summary": combined_data.get("experience_summary", "No summary available.")
             }
 
-            
             return final_result
 
         except Exception as e:

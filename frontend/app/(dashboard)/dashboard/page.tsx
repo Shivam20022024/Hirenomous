@@ -175,9 +175,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <section className="grid gap-3 rounded-2xl border border-border bg-card p-4 md:grid-cols-[1fr_1fr_auto_auto] md:items-end">
-        <label className="eyebrow">Date range
-          <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="mt-2 block h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium">
+      <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-end">
+        <label className="eyebrow flex-1 min-w-[200px]">Date range
+          <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="mt-2 block h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/30">
             <option value="today">Today</option>
             <option value="last_7_days">Last 7 Days</option>
             <option value="this_week">This Week</option>
@@ -188,18 +188,20 @@ export default function DashboardPage() {
             <option value="this_year">This Year</option>
           </select>
         </label>
-        <label className="eyebrow">Job role
-          <select value={jobId} onChange={e => setJobId(e.target.value)} className="mt-2 block h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium">
+        <label className="eyebrow flex-1 min-w-[200px]">Job role
+          <select value={jobId} onChange={e => setJobId(e.target.value)} className="mt-2 block h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/30">
             <option value="">All jobs</option>
             {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
           </select>
         </label>
-        <button onClick={loadDashboardData} className="h-11 rounded-xl bg-foreground px-5 text-sm font-semibold text-background hover:opacity-90">
-          Apply filters
-        </button>
-        <button onClick={() => { setDateRange('last_30_days'); setJobId(''); }} className="h-11 rounded-xl border border-border px-5 text-sm font-semibold text-muted-foreground hover:bg-muted">
-          Reset
-        </button>
+        <div className="flex gap-2 sm:shrink-0">
+          <button onClick={loadDashboardData} className="h-11 flex-1 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 sm:flex-none">
+            Apply filters
+          </button>
+          <button onClick={() => { setDateRange('last_30_days'); setJobId(''); }} className="h-11 flex-1 rounded-xl border border-border px-5 text-sm font-semibold text-muted-foreground hover:bg-muted sm:flex-none">
+            Reset
+          </button>
+        </div>
       </section>
 
       {dashboardData && (

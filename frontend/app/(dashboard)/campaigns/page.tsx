@@ -148,14 +148,14 @@ export default function CampaignsPage() {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center justify-between h-11 rounded-xl border-2 border-slate-800 bg-card px-4 text-sm font-extrabold text-foreground min-w-[200px]"
+              className="flex items-center justify-between h-11 rounded-xl border-2 border-blue-300 bg-blue-50 px-4 text-sm font-black text-blue-700 min-w-[200px]"
             >
               <span>{selectedJobs.length === 0 ? 'All Postings' : `${selectedJobs.length} Job${selectedJobs.length > 1 ? 's' : ''} Selected`}</span>
               <ChevronDown size={16} className="ml-2" />
             </button>
-            
+
             {isDropdownOpen && (
-              <div className="absolute top-12 left-0 z-50 w-64 rounded-xl border-2 border-slate-800 bg-card p-2 shadow-xl max-h-[300px] overflow-y-auto">
+              <div className="absolute top-12 left-0 z-50 w-64 rounded-xl border-2 border-blue-300 bg-card p-2 shadow-xl max-h-[300px] overflow-y-auto">
                 <div className="flex gap-2 mb-2 pb-2 border-b border-border px-2">
                   <button onClick={() => setSelectedJobs(jobs.map(j => j.id))} className="text-xs font-semibold text-primary hover:underline">Select All</button>
                   <button onClick={() => setSelectedJobs([])} className="text-xs font-semibold text-muted-foreground hover:underline">Clear All</button>
@@ -176,10 +176,10 @@ export default function CampaignsPage() {
               </div>
             )}
           </div>
-          <button 
-            onClick={handleSyncAllActive} 
-            disabled={actionLoading || activeCalls.length === 0} 
-            className="flex h-11 items-center justify-center rounded-xl border-2 border-slate-800 bg-card px-4 text-sm font-extrabold text-foreground shadow-sm hover:bg-muted disabled:opacity-75 disabled:cursor-not-allowed whitespace-nowrap"
+          <button
+            onClick={handleSyncAllActive}
+            disabled={actionLoading || activeCalls.length === 0}
+            className="flex h-11 items-center justify-center rounded-xl border-2 border-blue-300 bg-blue-50 px-4 text-sm font-black text-blue-700 shadow-sm hover:bg-blue-100 disabled:opacity-75 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <RefreshCw size={16} className="mr-2" />} 
             Sync Active ({activeCalls.length})
@@ -187,7 +187,7 @@ export default function CampaignsPage() {
           <button 
             onClick={handleDeleteAllCompleted} 
             disabled={actionLoading || selectedForDeletion.length === 0} 
-            className="flex h-11 items-center justify-center rounded-xl border-2 border-red-600 bg-red-50 text-red-700 px-4 text-sm font-extrabold shadow-sm hover:bg-red-100 disabled:opacity-75 disabled:cursor-not-allowed whitespace-nowrap"
+            className="flex h-11 items-center justify-center rounded-xl border-2 border-red-600 bg-red-50 text-red-700 px-4 text-sm font-black shadow-sm hover:bg-red-100 disabled:opacity-75 disabled:cursor-not-allowed whitespace-nowrap"
           >
             {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <Trash2 size={16} className="mr-2" />} 
             Delete Selected ({selectedForDeletion.length})
@@ -231,15 +231,15 @@ export default function CampaignsPage() {
 
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="flex border-b border-border bg-muted/20">
-          <button 
+          <button
             onClick={() => setActiveTab('pending')}
-            className={`flex-1 py-4 text-sm font-semibold transition-colors ${activeTab === 'pending' ? 'bg-card text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+            className={`flex-1 py-4 text-sm font-bold transition-colors ${activeTab === 'pending' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-muted-foreground hover:bg-muted/50'}`}
           >
             Uncalled & Active ({pendingCalls.length + activeCalls.length})
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('completed')}
-            className={`flex-1 py-4 text-sm font-semibold transition-colors ${activeTab === 'completed' ? 'bg-muted text-foreground border-b-2 border-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+            className={`flex-1 py-4 text-sm font-bold transition-colors ${activeTab === 'completed' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-muted-foreground hover:bg-muted/50'}`}
           >
             Completed ({completedCalls.length})
           </button>
@@ -250,11 +250,11 @@ export default function CampaignsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-muted/50 text-xs font-semibold text-muted-foreground">
+              <thead className="border-b-2 border-blue-300 bg-blue-50 text-xs font-bold uppercase tracking-wider text-blue-700">
                 <tr>
                   <th className="px-6 py-4 w-12">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="rounded border-border accent-primary w-4 h-4"
                       checked={displayCandidates.length > 0 && selectedForDeletion.length === displayCandidates.length}
                       onChange={(e) => {

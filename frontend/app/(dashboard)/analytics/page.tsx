@@ -66,20 +66,20 @@ export default function AnalyticsPage() {
 
       <div className="flex items-center gap-4 border-b border-border pb-4">
         <label className="text-sm font-medium">Resolution:</label>
-        <div className="flex bg-muted rounded-lg p-1">
+        <div className="flex rounded-lg border-2 border-teal-300 bg-teal-50 p-1">
           {['daily', 'weekly', 'monthly'].map(p => (
-            <button 
-              key={p} 
+            <button
+              key={p}
               onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md capitalize ${period === p ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'}`}
+              className={`px-3 py-1.5 text-xs font-bold rounded-md capitalize ${period === p ? 'bg-teal-600 text-white shadow-sm' : 'text-teal-700 hover:bg-teal-100'}`}
             >
               {p}
             </button>
           ))}
         </div>
-        
+
         <label className="text-sm font-medium ml-4">Timeframe:</label>
-        <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="h-9 rounded-lg border border-border bg-card px-3 text-sm">
+        <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="h-9 rounded-lg border-2 border-teal-300 bg-teal-50 px-3 text-sm font-semibold text-teal-700">
           <option value="last_7_days">Last 7 Days</option>
           <option value="this_month">This Month</option>
           <option value="last_month">Last Month</option>
@@ -91,7 +91,7 @@ export default function AnalyticsPage() {
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-muted/50 text-xs font-semibold text-muted-foreground">
+            <thead className="border-b-2 border-teal-300 bg-teal-50 text-xs font-bold uppercase tracking-wider text-teal-700">
               <tr>
                 <th className="px-6 py-4">Period</th>
                 <th className="px-6 py-4"><div className="flex items-center gap-1"><Users size={14}/> Candidates</div></th>

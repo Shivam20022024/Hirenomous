@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     BOLNA_AGENT_ID: Optional[str] = None
     BOLNA_CALLBACK_API_TOKEN: Optional[str] = None
 
+    # Google Drive Settings (for importing resumes from Drive folders)
+    GOOGLE_DRIVE_API_KEY: Optional[str] = None
+
     # Email Settings
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587

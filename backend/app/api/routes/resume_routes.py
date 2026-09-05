@@ -6,12 +6,14 @@ from app.services.excel_service import ExcelService
 from app.services.resume_service import ResumeService
 from app.utils.parser import extract_text
 import os
+import re
 import shutil
 import uuid
 import json
 import logging
 import time
 import tempfile
+import requests
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
@@ -85,6 +87,129 @@ def format_candidate_response(c: dict):
 
 
 
+async def _process_resume_file(
+    request_id: str,
+    file_path: str,
+    original_filename: str,
+    effective_job_description: str,
+    skip_ai: bool,
+    job_id: Optional[str],
+    org_id: str
+) -> ResumeAnalysisResponse:
+    """Shared pipeline: extract text -> AI score -> persist. Used by both the
+    local-file upload endpoint and the Google Drive import endpoint."""
+
+    # Extract text
+    logger.info(f"[{request_id}] Extracting text from {original_filename}...")
+    try:
+        text = await run_in_threadpool(extract_text, file_path)
+        if not text or len(text.strip()) < 50:
+            logger.warning(f"[{request_id}] Extracted text is too short or empty ({len(text) if text else 0} chars)")
+            raise ValueError("Extracted text is too short to be a valid resume.")
+    except Exception as e:
+        logger.error(f"[{request_id}] Text extraction failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to extract text from resume: {str(e)}")
+
+    # Process with AI or Skip AI
+    try:
+        if skip_ai:
+            logger.info(f"[{request_id}] Skipping AI analysis, using fast local extraction...")
+            from app.services.resume_service import fallback_parse_resume_text
+            parsed_data = fallback_parse_resume_text(text)
+            candidate_name = parsed_data.get('name') or 'Candidate'
+            if candidate_name == "Unknown": candidate_name = "Candidate"
+            result = {
+                **parsed_data,
+                "name": candidate_name,
+                "score": 100.0,
+                "missing_skills": [],
+                "reason": "AI scoring bypassed.",
+                "summary": parsed_data.get("experience_summary", "AI scoring bypassed."),
+                "role": "Not Assessed",
+                "total_experience": parsed_data.get("total_experience", "Not Assessed")
+            }
+        else:
+            result = await ResumeService.process_resume(text, effective_job_description)
+            candidate_name = result.get('name', 'Candidate')
+    except Exception as e:
+        logger.error(f"[{request_id}] Critical processing failure: {str(e)}")
+        result = {
+            "name": "Candidate",
+            "email": "N/A",
+            "phone": "N/A",
+            "skills": [],
+            "missing_skills": [],
+            "score": 50.0,
+            "reason": "Internal processing error.",
+            "summary": "N/A",
+            "role": "Not Assessed"
+        }
+        candidate_name = "Candidate"
+    score = result.get("score", 50.0)
+    phone = result.get("phone", "")
+
+    if not phone or str(phone).strip().lower() in ["", "n/a", "none", "null"]:
+        logger.warning(f"[{request_id}] No phone number found for {original_filename}. Adding as rejected.")
+        status = "rejected"
+        result["reason"] = "Rejected: Could not detect a valid phone number."
+        score = 0.0 # Force a low score
+    else:
+        # If we hit a fallback (50.0) due to processing failure, mark as pending for human review
+        if score == 50.0 and ("failure" in result.get("reason", "").lower() or "error" in result.get("reason", "").lower()):
+            status = "pending"
+        else:
+            status = "shortlisted" if score >= settings.SHORTLIST_THRESHOLD else "rejected"
+
+    candidate_data = {
+        "id": str(uuid.uuid4()),
+        "name": candidate_name,
+        "email": result.get("email"),
+        "phone": result.get("phone"),
+        "skills": result.get("skills", []),
+        "missing_skills": result.get("missing_skills", []),
+        "resume_score": score,
+        "reason": result.get("reason", ""),
+        "summary": result.get("summary", ""),
+        "job_description": effective_job_description,
+        "status": status,
+        "shortlisted": status == "shortlisted",
+        "role": result.get("role"),
+        "total_experience": result.get("total_experience", "Not Available"),
+        "ai_summary": result.get("reason"),
+        "organization_id": org_id,
+        "job_id": job_id,
+        "created_at": datetime.utcnow()
+    }
+
+    # Save to DB + Excel
+    try:
+        db = get_db()
+
+        logger.info(f"[{request_id}] DB update started for {candidate_name}...")
+        await db.candidates.insert_one(candidate_data)
+        logger.info(f"[{request_id}] DB updated successfully.")
+
+        logger.info(f"[{request_id}] Excel update started...")
+        ExcelService.update_candidate_excel(candidate_data, org_id)
+        logger.info(f"[{request_id}] Excel updated successfully.")
+    except Exception as e:
+        logger.error(f"[{request_id}] Database/Excel stage failed: {str(e)}")
+        logger.warning(f"[{request_id}] Returning parsed candidate data without persistence.")
+
+    return ResumeAnalysisResponse(
+        candidate_id=candidate_data["id"],
+        name=candidate_data["name"],
+        email=candidate_data["email"],
+        phone=candidate_data["phone"],
+        score=candidate_data["resume_score"],
+        skills=candidate_data["skills"],
+        missing_skills=candidate_data["missing_skills"],
+        summary=candidate_data["summary"],
+        status=candidate_data["status"],
+        role=candidate_data.get("role")
+    )
+
+
 @router.post("/upload-resume", response_model=ResumeAnalysisResponse)
 async def upload_resume(
     file: UploadFile = File(...),
@@ -97,13 +222,13 @@ async def upload_resume(
     start_time = time.time()
     request_id = str(uuid.uuid4())[:8]
     logger.info(f"[{request_id}] Starting resume upload process for file: {file.filename}, skip_ai: {skip_ai}")
-    
+
     # 1. Save temp file
     temp_dir = "temp_resumes"
     os.makedirs(temp_dir, exist_ok=True)
     file_path = os.path.join(temp_dir, f"{uuid.uuid4()}_{file.filename}")
     jd_file_path = None
-    
+
     try:
         await file.seek(0)
         with open(file_path, "wb") as buffer:
@@ -132,124 +257,15 @@ async def upload_resume(
                 else:
                     logger.error(f"[{request_id}] JD extraction failed: {str(e)}")
                     raise HTTPException(status_code=400, detail=f"Failed to extract text from JD file: {str(e)}")
-        
-        # 2. Extract text
-        logger.info(f"[{request_id}] Extracting text from {file.filename}...")
-        try:
-            text = await run_in_threadpool(extract_text, file_path)
-            if not text or len(text.strip()) < 50:
-                logger.warning(f"[{request_id}] Extracted text is too short or empty ({len(text) if text else 0} chars)")
-                raise ValueError("Extracted text is too short to be a valid resume.")
-        except Exception as e:
-            logger.error(f"[{request_id}] Text extraction failed: {str(e)}")
-            raise HTTPException(status_code=400, detail=f"Failed to extract text from resume: {str(e)}")
-            
-        # 3. Process with AI or Skip AI
-        try:
-            if skip_ai:
-                logger.info(f"[{request_id}] Skipping AI analysis, using fast local extraction...")
-                from app.services.resume_service import fallback_parse_resume_text
-                parsed_data = fallback_parse_resume_text(text)
-                candidate_name = parsed_data.get('name') or 'Candidate'
-                if candidate_name == "Unknown": candidate_name = "Candidate"
-                result = {
-                    **parsed_data,
-                    "name": candidate_name,
-                    "score": 100.0,
-                    "missing_skills": [],
-                    "reason": "AI scoring bypassed.",
-                    "summary": parsed_data.get("experience_summary", "AI scoring bypassed."),
-                    "role": "Not Assessed",
-                    "total_experience": parsed_data.get("total_experience", "Not Assessed")
-                }
-            else:
-                result = await ResumeService.process_resume(text, effective_job_description)
-                candidate_name = result.get('name', 'Candidate')
-        except Exception as e:
-            logger.error(f"[{request_id}] Critical processing failure: {str(e)}")
-            result = {
-                "name": "Candidate",
-                "email": "N/A",
-                "phone": "N/A",
-                "skills": [],
-                "missing_skills": [],
-                "score": 50.0,
-                "reason": "Internal processing error.",
-                "summary": "N/A",
-                "role": "Not Assessed"
-            }
-            candidate_name = "Candidate"
-        score = result.get("score", 50.0)
-        phone = result.get("phone", "")
-        
-        if not phone or str(phone).strip().lower() in ["", "n/a", "none", "null"]:
-            logger.warning(f"[{request_id}] No phone number found for {file.filename}. Adding as rejected.")
-            status = "rejected"
-            result["reason"] = "Rejected: Could not detect a valid phone number."
-            score = 0.0 # Force a low score
-        else:
-            # If we hit a fallback (50.0) due to processing failure, mark as pending for human review
-            if score == 50.0 and ("failure" in result.get("reason", "").lower() or "error" in result.get("reason", "").lower()):
-                status = "pending"
-            else:
-                status = "shortlisted" if score >= settings.SHORTLIST_THRESHOLD else "rejected"
 
-        candidate_data = {
-            "id": str(uuid.uuid4()),
-            "name": candidate_name,
-            "email": result.get("email"),
-            "phone": result.get("phone"),
-            "skills": result.get("skills", []),
-            "missing_skills": result.get("missing_skills", []),
-            "resume_score": score,
-            "reason": result.get("reason", ""),
-            "summary": result.get("summary", ""),
-            "job_description": effective_job_description,
-            "status": status,
-            "shortlisted": status == "shortlisted",
-            "role": result.get("role"),
-            "total_experience": result.get("total_experience", "Not Available"),
-            "ai_summary": result.get("reason"),
-            "organization_id": org_id,
-            "job_id": job_id,
-            "created_at": datetime.utcnow()
-        }
-
-
-
-        # 4. Save to DB
-        try:
-            db = get_db()
-
-            logger.info(f"[{request_id}] DB update started for {candidate_name}...")
-            await db.candidates.insert_one(candidate_data)
-            logger.info(f"[{request_id}] DB updated successfully.")
-            
-            # 5. Save to Excel
-            logger.info(f"[{request_id}] Excel update started...")
-            ExcelService.update_candidate_excel(candidate_data, org_id)
-            logger.info(f"[{request_id}] Excel updated successfully.")
-        except Exception as e:
-            logger.error(f"[{request_id}] Database/Excel stage failed: {str(e)}")
-            logger.warning(f"[{request_id}] Returning parsed candidate data without persistence.")
+        response = await _process_resume_file(
+            request_id, file_path, file.filename, effective_job_description, skip_ai, job_id, org_id
+        )
 
         duration = time.time() - start_time
         logger.info(f"[{request_id}] Total processing time: {duration:.2f}s")
+        return response
 
-        return ResumeAnalysisResponse(
-            candidate_id=candidate_data["id"],
-            name=candidate_data["name"],
-            email=candidate_data["email"],
-            phone=candidate_data["phone"],
-            score=candidate_data["resume_score"],
-            skills=candidate_data["skills"],
-            missing_skills=candidate_data["missing_skills"],
-            summary=candidate_data["summary"],
-            status=candidate_data["status"],
-            role=candidate_data.get("role")
-        )
-
-            
     finally:
         if os.path.exists(file_path):
             try:
@@ -263,6 +279,223 @@ async def upload_resume(
                 logger.info(f"[{request_id}] Cleaned up temp JD file {jd_file_path}")
             except Exception as e:
                 logger.warning(f"[{request_id}] Failed to delete temp JD file {jd_file_path}: {str(e)}")
+
+
+class DriveResumeRequest(BaseModel):
+    drive_url: Optional[str] = None
+    file_id: Optional[str] = None
+    job_description: str = "We are looking for a software engineer with Python and AI experience."
+    skip_ai: bool = False
+    job_id: Optional[str] = None
+
+
+def _extract_drive_file_id(url: str) -> Optional[str]:
+    patterns = [
+        r"/file/d/([a-zA-Z0-9_-]+)",
+        r"[?&]id=([a-zA-Z0-9_-]+)",
+        r"/d/([a-zA-Z0-9_-]+)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    return None
+
+
+def _download_drive_file(file_id: str):
+    """Download a publicly-shared Google Drive file, handling the
+    'can't scan this file for viruses' confirmation step Drive adds for
+    larger files."""
+    base_url = "https://drive.google.com/uc?export=download"
+    session = requests.Session()
+    response = session.get(base_url, params={"id": file_id}, stream=True, timeout=30)
+
+    token = None
+    for key, value in response.cookies.items():
+        if key.startswith("download_warning"):
+            token = value
+            break
+    if token is None and "text/html" in response.headers.get("Content-Type", ""):
+        match = re.search(r"confirm=([0-9A-Za-z_-]+)", response.text)
+        if match:
+            token = match.group(1)
+
+    if token:
+        response = session.get(base_url, params={"id": file_id, "confirm": token}, stream=True, timeout=30)
+
+    if response.status_code != 200:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not download the file from Google Drive (status {response.status_code}). "
+                   f"Make sure the link's sharing is set to 'Anyone with the link'."
+        )
+
+    content_type = response.headers.get("Content-Type", "")
+    if "text/html" in content_type:
+        raise HTTPException(
+            status_code=400,
+            detail="Could not access that Google Drive file. Make sure sharing is set to "
+                   "'Anyone with the link can view' and the link points to a single file."
+        )
+
+    filename = f"drive_resume_{file_id}"
+    content_disposition = response.headers.get("Content-Disposition", "")
+    match = re.search(r'filename="?([^";]+)"?', content_disposition)
+    if match:
+        filename = match.group(1)
+    else:
+        ext_map = {
+            "application/pdf": ".pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+            "application/msword": ".doc",
+        }
+        filename += ext_map.get(content_type.split(";")[0].strip(), ".pdf")
+
+    content = response.content
+    if not content:
+        raise HTTPException(status_code=400, detail="The downloaded Google Drive file was empty.")
+
+    return content, filename
+
+
+@router.post("/upload-resume-from-drive", response_model=ResumeAnalysisResponse)
+async def upload_resume_from_drive(
+    payload: DriveResumeRequest,
+    org_id: str = Depends(get_context_organization_id)
+):
+    start_time = time.time()
+    request_id = str(uuid.uuid4())[:8]
+    logger.info(f"[{request_id}] Starting Google Drive resume import: {payload.drive_url or payload.file_id}")
+
+    file_id = payload.file_id or (_extract_drive_file_id(payload.drive_url) if payload.drive_url else None)
+    if not file_id:
+        raise HTTPException(status_code=400, detail="Could not find a Google Drive file ID in that link.")
+
+    content, filename = await run_in_threadpool(_download_drive_file, file_id)
+
+    temp_dir = "temp_resumes"
+    os.makedirs(temp_dir, exist_ok=True)
+    file_path = os.path.join(temp_dir, f"{uuid.uuid4()}_{filename}")
+
+    try:
+        with open(file_path, "wb") as f:
+            f.write(content)
+        logger.info(f"[{request_id}] Drive resume downloaded: {filename}")
+
+        response = await _process_resume_file(
+            request_id, file_path, filename, payload.job_description, payload.skip_ai, payload.job_id, org_id
+        )
+
+        duration = time.time() - start_time
+        logger.info(f"[{request_id}] Total processing time: {duration:.2f}s")
+        return response
+
+    finally:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                logger.info(f"[{request_id}] Cleaned up temp file {file_path}")
+            except Exception as e:
+                logger.warning(f"[{request_id}] Failed to delete temp file {file_path}: {str(e)}")
+
+
+class DriveFolderListRequest(BaseModel):
+    drive_url: str
+
+
+class DriveFolderFile(BaseModel):
+    file_id: str
+    name: str
+
+
+class DriveFolderListResponse(BaseModel):
+    folder_id: str
+    files: List[DriveFolderFile]
+
+
+def _extract_drive_folder_id(url: str) -> Optional[str]:
+    match = re.search(r"/folders/([a-zA-Z0-9_-]+)", url)
+    return match.group(1) if match else None
+
+
+SUPPORTED_RESUME_MIME_TYPES = {
+    "application/pdf": ".pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+    "application/msword": ".doc",
+}
+
+
+def _list_drive_folder_files(folder_id: str):
+    """List resume-like files inside a publicly-shared Google Drive folder
+    using the Drive API v3 with a plain API key (no OAuth required, since
+    the folder must be shared as 'Anyone with the link')."""
+    api_key = settings.GOOGLE_DRIVE_API_KEY
+    if not api_key:
+        raise HTTPException(
+            status_code=400,
+            detail="Google Drive folder import isn't configured yet. Set GOOGLE_DRIVE_API_KEY on the backend "
+                   "to enable importing resumes from a Drive folder link."
+        )
+
+    files = []
+    page_token = None
+    mime_filter = " or ".join(f"mimeType='{m}'" for m in SUPPORTED_RESUME_MIME_TYPES)
+
+    while True:
+        params = {
+            "q": f"'{folder_id}' in parents and trashed = false and ({mime_filter})",
+            "key": api_key,
+            "fields": "nextPageToken, files(id, name, mimeType)",
+            "pageSize": 1000,
+        }
+        if page_token:
+            params["pageToken"] = page_token
+
+        resp = requests.get("https://www.googleapis.com/drive/v3/files", params=params, timeout=30)
+        if resp.status_code != 200:
+            detail = "Could not list that Drive folder. Make sure it's shared as 'Anyone with the link can view'."
+            try:
+                detail = resp.json().get("error", {}).get("message", detail)
+            except Exception:
+                pass
+            raise HTTPException(status_code=400, detail=detail)
+
+        data = resp.json()
+        files.extend(data.get("files", []))
+        page_token = data.get("nextPageToken")
+        if not page_token:
+            break
+
+    return files
+
+
+@router.post("/list-drive-folder-files", response_model=DriveFolderListResponse)
+async def list_drive_folder_files(
+    payload: DriveFolderListRequest,
+    org_id: str = Depends(get_context_organization_id)
+):
+    """Fast lookup of the resume files inside a publicly-shared Google Drive
+    folder. Deliberately does NOT process/score the files here — scoring each
+    resume via AI takes several seconds apiece, so a folder of 20+ files would
+    make this single request time out. Instead the frontend fetches this list
+    and then imports each file as its own concurrent request to
+    /upload-resume-from-drive, mirroring how local multi-file uploads work."""
+    folder_id = _extract_drive_folder_id(payload.drive_url)
+    if not folder_id:
+        raise HTTPException(status_code=400, detail="Could not find a Google Drive folder ID in that link.")
+
+    files = await run_in_threadpool(_list_drive_folder_files, folder_id)
+    if not files:
+        raise HTTPException(
+            status_code=400,
+            detail="No PDF/DOCX/DOC resumes found in that folder, or the folder isn't shared as "
+                   "'Anyone with the link can view'."
+        )
+
+    return DriveFolderListResponse(
+        folder_id=folder_id,
+        files=[DriveFolderFile(file_id=f["id"], name=f.get("name") or f["id"]) for f in files]
+    )
 
 
 @router.post("/add-manual", response_model=ResumeAnalysisResponse)
