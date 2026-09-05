@@ -123,7 +123,7 @@ class EmailService:
         shortlist / selection email — creating an interview must never send that."""
         candidate_name = candidate.get("name", "Candidate")
         role_display = job_title or "the open position"
-        subject = f"AI Interview Invitation – {role_display}"
+        subject = f"AI Interview Invitation - {role_display}"
         body = (
             f"Hi {candidate_name},\n\n"
             f"Thank you for your interest in the {role_display} position.\n\n"
