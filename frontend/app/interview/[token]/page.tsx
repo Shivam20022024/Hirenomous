@@ -2,24 +2,29 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { Mic, MicOff, Loader2, CheckCircle2, AlertCircle, Volume2, RefreshCw, Play, Square } from 'lucide-react';
+import {
+  Video, VideoOff, Mic, MicOff, Volume2, Wifi, Loader2, CheckCircle2, AlertCircle,
+  Play, Square, RefreshCw, Circle, Keyboard,
+} from 'lucide-react';
 import { interviewApi } from '@/lib/interview-api';
 
-type Phase = 'loading' | 'error' | 'welcome' | 'interview' | 'complete';
+type Phase = 'loading' | 'error' | 'complete' | 'device-check' | 'interview';
+type MediaState = 'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable' | 'unsupported';
 
 interface SessionInfo {
   candidate_first_name: string;
   job_title: string;
   status: string;
+  mode?: string;
   total_questions: number;
+  answered_questions?: number;
+  in_progress?: boolean;
   already_completed: boolean;
   assesses: string[];
 }
-
 interface QuestionPayload {
   done: boolean;
   question_text?: string;
-  question_type?: string;
   is_followup?: boolean;
   question_number?: number;
   total_questions?: number;
@@ -27,7 +32,14 @@ interface QuestionPayload {
   message?: string;
 }
 
-export default function CandidateInterviewPage() {
+const VIDEO_MIME = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'];
+const AUDIO_MIME = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+const pickMime = (list: string[]) =>
+  typeof MediaRecorder !== 'undefined'
+    ? list.find((t) => { try { return MediaRecorder.isTypeSupported(t); } catch { return false; } })
+    : undefined;
+
+export default function CandidateVideoInterviewPage() {
   const params = useParams<{ token: string }>();
   const token = params?.token as string;
 
@@ -36,8 +48,14 @@ export default function CandidateInterviewPage() {
   const [session, setSession] = useState<SessionInfo | null>(null);
   const [question, setQuestion] = useState<QuestionPayload | null>(null);
 
-  const [micState, setMicState] = useState<'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable'>('idle');
+  const [media, setMedia] = useState<MediaState>('idle');
+  const [camOn, setCamOn] = useState(false);
+  const [micOn, setMicOn] = useState(false);
+  const [speakerOk, setSpeakerOk] = useState(true);
+  const [online, setOnline] = useState(true);
+
   const [recording, setRecording] = useState(false);
+  const [recSeconds, setRecSeconds] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [aiSpeaking, setAiSpeaking] = useState(false);
   const [turnError, setTurnError] = useState('');
@@ -46,12 +64,18 @@ export default function CandidateInterviewPage() {
   const [completeMessage, setCompleteMessage] = useState('');
 
   const streamRef = useRef<MediaStream | null>(null);
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const pendingBlobRef = useRef<Blob | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const videoElRef = useRef<HTMLVideoElement | null>(null);
+  const vRecRef = useRef<MediaRecorder | null>(null);
+  const aRecRef = useRef<MediaRecorder | null>(null);
+  const vChunks = useRef<Blob[]>([]);
+  const aChunks = useRef<Blob[]>([]);
+  const pendingVideo = useRef<Blob | null>(null);
+  const pendingAudio = useRef<Blob | null>(null);
+  const pendingDuration = useRef<number>(0);
+  const timerRef = useRef<any>(null);
+  const aiAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // --- load session ---
+  // ---- load session ----
   useEffect(() => {
     if (!token) return;
     (async () => {
@@ -61,10 +85,8 @@ export default function CandidateInterviewPage() {
         if (info.already_completed || info.status === 'completed') {
           setCompleteMessage('This interview has already been completed. Thank you.');
           setPhase('complete');
-        } else if (info.status === 'in_progress') {
-          setPhase('welcome'); // still ask for mic, then resume via start()
         } else {
-          setPhase('welcome');
+          setPhase('device-check');
         }
       } catch (err: any) {
         setErrorMsg(err?.message || 'This interview link is not valid.');
@@ -73,164 +95,182 @@ export default function CandidateInterviewPage() {
     })();
   }, [token]);
 
-  const cleanupStream = useCallback(() => {
-    try {
-      recorderRef.current?.state === 'recording' && recorderRef.current.stop();
-    } catch {}
+  useEffect(() => {
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    setOnline(navigator.onLine);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
+  }, []);
+
+  const stopStream = useCallback(() => {
+    try { if (vRecRef.current?.state === 'recording') vRecRef.current.stop(); } catch {}
+    try { if (aRecRef.current?.state === 'recording') aRecRef.current.stop(); } catch {}
+    if (timerRef.current) clearInterval(timerRef.current);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
   }, []);
+  useEffect(() => () => stopStream(), [stopStream]);
 
-  useEffect(() => () => cleanupStream(), [cleanupStream]);
-
-  // --- mic permission ---
-  const requestMic = async (): Promise<boolean> => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setMicState('unavailable');
+  // ---- camera + mic ----
+  const requestMedia = async (): Promise<boolean> => {
+    if (typeof MediaRecorder === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setMedia('unsupported');
       return false;
     }
-    setMicState('requesting');
+    setMedia('requesting');
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
       streamRef.current = stream;
-      setMicState('granted');
+      setCamOn(stream.getVideoTracks().some((t) => t.enabled && t.readyState === 'live'));
+      setMicOn(stream.getAudioTracks().some((t) => t.enabled && t.readyState === 'live'));
+      stream.getVideoTracks()[0]?.addEventListener('ended', () => setCamOn(false));
+      stream.getAudioTracks()[0]?.addEventListener('ended', () => setMicOn(false));
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        setSpeakerOk(devices.some((d) => d.kind === 'audiooutput'));
+      } catch {}
+      setMedia('granted');
       return true;
-    } catch {
-      setMicState('denied');
+    } catch (e: any) {
+      setMedia(e?.name === 'NotFoundError' || e?.name === 'DevicesNotFoundError' ? 'unavailable' : 'denied');
       return false;
     }
   };
 
-  // --- play a question's audio, then arm recording ---
-  const playQuestionAudio = useCallback(
-    async (q: QuestionPayload) => {
-      if (!q.audio_file) return;
-      try {
-        setAiSpeaking(true);
-        const audio = new Audio(interviewApi.audioUrl(token, q.audio_file));
-        audioRef.current = audio;
-        await audio.play();
-        await new Promise<void>((resolve) => {
-          audio.onended = () => resolve();
-          audio.onerror = () => resolve();
-        });
-      } catch {
-        // Autoplay blocked or audio failed — the question text is always shown.
-      } finally {
-        setAiSpeaking(false);
-      }
-    },
-    [token],
-  );
+  // attach stream to <video> whenever we have both
+  useEffect(() => {
+    if (videoElRef.current && streamRef.current && media === 'granted') {
+      videoElRef.current.srcObject = streamRef.current;
+      videoElRef.current.play().catch(() => {});
+    }
+  }, [media, phase]);
 
-  const replayAudio = () => {
-    if (question?.audio_file) playQuestionAudio(question);
-  };
+  // ---- AI question audio ----
+  const playQuestionAudio = useCallback(async (q: QuestionPayload) => {
+    if (!q.audio_file) return;
+    try {
+      setAiSpeaking(true);
+      const audio = new Audio(interviewApi.audioUrl(token, q.audio_file));
+      aiAudioRef.current = audio;
+      await audio.play();
+      await new Promise<void>((resolve) => {
+        audio.onended = () => resolve();
+        audio.onerror = () => resolve();
+      });
+    } catch {
+      /* autoplay blocked — the question text is always visible */
+    } finally {
+      setAiSpeaking(false);
+    }
+  }, [token]);
 
-  // --- start / resume the interview ---
+  const replayAudio = () => { if (question?.audio_file) playQuestionAudio(question); };
+
+  // ---- start / resume ----
   const startInterview = async () => {
-    const ok = streamRef.current ? true : await requestMic();
-    // Allow continuing even without mic (text fallback), but nudge the user.
+    let ok = !!streamRef.current;
+    if (!ok) ok = await requestMedia();
     try {
       setProcessing(true);
       setTurnError('');
       const q: QuestionPayload = await interviewApi.start(token);
       setProcessing(false);
       setPhase('interview');
-      if (q.done) {
-        await finishInterview();
-        return;
-      }
+      if (q.done) { await finishInterview(); return; }
       setQuestion(q);
       if (!ok) setUseTextFallback(true);
       playQuestionAudio(q);
     } catch (err: any) {
       setProcessing(false);
-      if (err?.status === 410) {
-        setErrorMsg(err.message);
-        setPhase('error');
-      } else {
-        setTurnError(err?.message || 'Could not start the interview. Please retry.');
-        setPhase('welcome');
-      }
+      if (err?.status === 410) { setErrorMsg(err.message); setPhase('error'); }
+      else { setTurnError(err?.message || 'Could not start the interview. Please retry.'); }
     }
   };
 
-  // --- recording ---
+  // ---- recording (dual: video for review + audio for STT) ----
   const beginRecording = () => {
-    if (!streamRef.current) {
-      setUseTextFallback(true);
-      return;
-    }
-    chunksRef.current = [];
+    if (!streamRef.current) { setUseTextFallback(true); return; }
+    vChunks.current = []; aChunks.current = [];
+    setRecSeconds(0);
     try {
-      const rec = new MediaRecorder(streamRef.current);
-      rec.ondataavailable = (e) => e.data.size > 0 && chunksRef.current.push(e.data);
-      rec.onstop = () => {
-        pendingBlobRef.current = new Blob(chunksRef.current, { type: chunksRef.current[0]?.type || 'audio/webm' });
-      };
-      recorderRef.current = rec;
-      rec.start();
+      const vType = pickMime(VIDEO_MIME);
+      const aType = pickMime(AUDIO_MIME);
+      const vRec = new MediaRecorder(streamRef.current, vType ? { mimeType: vType } : undefined);
+      vRec.ondataavailable = (e) => e.data.size > 0 && vChunks.current.push(e.data);
+      vRecRef.current = vRec;
+
+      const audioOnly = new MediaStream(streamRef.current.getAudioTracks());
+      const aRec = new MediaRecorder(audioOnly, aType ? { mimeType: aType } : undefined);
+      aRec.ondataavailable = (e) => e.data.size > 0 && aChunks.current.push(e.data);
+      aRecRef.current = aRec;
+
+      vRec.start();
+      aRec.start();
       setRecording(true);
+      timerRef.current = setInterval(() => setRecSeconds((s) => s + 1), 1000);
     } catch {
       setUseTextFallback(true);
     }
   };
 
   const stopAndSubmit = async () => {
-    if (recorderRef.current?.state === 'recording') {
-      await new Promise<void>((resolve) => {
-        recorderRef.current!.onstop = () => {
-          pendingBlobRef.current = new Blob(chunksRef.current, {
-            type: chunksRef.current[0]?.type || 'audio/webm',
-          });
-          resolve();
-        };
-        recorderRef.current!.stop();
+    if (timerRef.current) clearInterval(timerRef.current);
+    const finalize = (rec: MediaRecorder | null, chunks: Blob[]): Promise<Blob | null> =>
+      new Promise((resolve) => {
+        if (!rec || rec.state !== 'recording') return resolve(null);
+        rec.onstop = () => resolve(new Blob(chunks, { type: chunks[0]?.type || rec.mimeType || 'video/webm' }));
+        rec.stop();
       });
-    }
+    const [vBlob, aBlob] = await Promise.all([
+      finalize(vRecRef.current, vChunks.current),
+      finalize(aRecRef.current, aChunks.current),
+    ]);
+    pendingVideo.current = vBlob;
+    pendingAudio.current = aBlob;
+    pendingDuration.current = recSeconds;
     setRecording(false);
-    await submitTurn(pendingBlobRef.current || undefined, undefined);
+    await submitTurn();
   };
 
   const submitTextAnswer = async () => {
     if (!textAnswer.trim()) return;
-    await submitTurn(undefined, textAnswer.trim());
+    pendingVideo.current = null;
+    pendingAudio.current = null;
+    await submitTurn(textAnswer.trim());
     setTextAnswer('');
   };
 
-  const submitTurn = async (audio?: Blob, answerText?: string) => {
+  const submitTurn = async (answerText?: string) => {
     setProcessing(true);
     setTurnError('');
     try {
       const next: QuestionPayload = await interviewApi.turn(token, {
-        audio,
+        video: pendingVideo.current || undefined,
+        audio: pendingAudio.current || undefined,
         answerText,
         turnSeq: question?.question_number,
+        durationSeconds: pendingDuration.current || undefined,
       });
-      pendingBlobRef.current = null;
+      pendingVideo.current = null;
+      pendingAudio.current = null;
       setProcessing(false);
-      if (next.done) {
-        await finishInterview();
-        return;
-      }
+      if (next.done) { await finishInterview(); return; }
       setQuestion(next);
       playQuestionAudio(next);
     } catch (err: any) {
       setProcessing(false);
-      if (err?.status === 410 || err?.status === 409) {
-        // Interview ended elsewhere (cancelled / already completed / expired)
-        setErrorMsg(err.message);
-        setPhase('error');
-      } else {
-        // Network / transient — keep the recorded answer so the candidate can retry.
-        setTurnError(err?.message || 'Network problem submitting your answer. Please retry.');
-      }
+      if (err?.status === 410 || err?.status === 409) { setErrorMsg(err.message); setPhase('error'); }
+      else setTurnError(err?.message || 'Network problem submitting your answer. Your recording is kept — please retry.');
     }
   };
 
   const retryTurn = async () => {
-    await submitTurn(pendingBlobRef.current || undefined, textAnswer.trim() || undefined);
+    await submitTurn(textAnswer.trim() || undefined);
   };
 
   const finishInterview = async () => {
@@ -240,20 +280,19 @@ export default function CandidateInterviewPage() {
     } catch {
       setCompleteMessage('Your interview has ended. Thank you for your time.');
     } finally {
-      cleanupStream();
+      stopStream();
       setPhase('complete');
     }
   };
 
+  const endInterviewEarly = async () => {
+    if (!confirm('End the interview now? You will not be able to answer the remaining questions.')) return;
+    await finishInterview();
+  };
+
   // ================= render =================
 
-  if (phase === 'loading') {
-    return (
-      <Centered>
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </Centered>
-    );
-  }
+  if (phase === 'loading') return <Centered><Loader2 className="h-8 w-8 animate-spin text-primary" /></Centered>;
 
   if (phase === 'error') {
     return (
@@ -279,133 +318,202 @@ export default function CandidateInterviewPage() {
           </div>
           <h1 className="text-xl font-bold text-foreground">Interview complete</h1>
           <p className="mt-2 text-sm text-muted-foreground">{completeMessage}</p>
-          <p className="mt-4 text-xs text-muted-foreground">
-            The hiring team will review your responses and be in touch. You can close this tab.
-          </p>
+          <p className="mt-4 text-xs text-muted-foreground">The hiring team will review your responses. You can close this tab.</p>
         </div>
       </Centered>
     );
   }
 
-  if (phase === 'welcome') {
+  if (phase === 'device-check') {
+    const resuming = session?.status === 'in_progress';
     return (
       <Centered>
-        <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-8 shadow-xl">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">AI Interview</p>
+        <div className="w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-xl sm:p-8">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">AI Video Interview</p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground">{session?.job_title}</h1>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Hi {session?.candidate_first_name}, welcome to your AI interview. It will take about 20–30 minutes
-            and assess your:
+          <p className="mt-2 text-sm text-muted-foreground">
+            {resuming
+              ? `Welcome back, ${session?.candidate_first_name}. Let's continue your interview.`
+              : `Hi ${session?.candidate_first_name}, let's get you set up. This is a video interview with an AI interviewer.`}
           </p>
-          <ul className="mt-4 grid grid-cols-2 gap-2 text-sm">
-            {(session?.assesses || []).map((a) => (
-              <li key={a} className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                {a}
-              </li>
-            ))}
-          </ul>
 
-          <div className="mt-6 rounded-xl border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
-            <p className="font-semibold text-foreground">Before you start</p>
-            <ul className="mt-2 space-y-1">
-              <li>• Use a quiet room and a stable internet connection.</li>
-              <li>• Allow microphone access when prompted.</li>
-              <li>• Answer each question out loud, then press “Stop answer”.</li>
-              <li>• Complete the interview in one sitting.</li>
-            </ul>
+          <div className="mt-6 grid gap-5 md:grid-cols-[1.1fr_1fr]">
+            <div>
+              <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-border bg-black">
+                {media === 'granted' ? (
+                  <video ref={videoElRef} autoPlay muted playsInline className="h-full w-full object-cover [transform:scaleX(-1)]" />
+                ) : (
+                  <div className="flex h-full flex-col items-center justify-center gap-2 text-white/70">
+                    <Video className="h-8 w-8" />
+                    <span className="text-xs">Camera preview</span>
+                  </div>
+                )}
+              </div>
+              {media !== 'granted' && (
+                <button
+                  onClick={requestMedia}
+                  disabled={media === 'requesting'}
+                  className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background text-sm font-semibold hover:bg-muted disabled:opacity-50"
+                >
+                  {media === 'requesting' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Video className="h-4 w-4" />}
+                  Enable camera &amp; microphone
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-2 text-sm">
+              <Check label="Camera" ok={camOn} bad={media === 'denied' || media === 'unavailable'} />
+              <Check label="Microphone" ok={micOn} bad={media === 'denied' || media === 'unavailable'} />
+              <Check label="Speaker" ok={speakerOk} />
+              <Check label="Internet connection" ok={online} bad={!online} />
+
+              <div className="!mt-4 rounded-xl border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                <p className="font-semibold text-foreground">Before you start</p>
+                <ul className="mt-1.5 space-y-1">
+                  <li>• Sit in a quiet, well-lit place.</li>
+                  <li>• Keep your face visible and centred.</li>
+                  <li>• Answer each question out loud, then press “Finish answer”.</li>
+                  <li>• Complete the interview in one sitting.</li>
+                </ul>
+              </div>
+            </div>
           </div>
 
-          {micState === 'denied' && (
+          {media === 'denied' && (
             <p className="mt-3 text-xs font-medium text-destructive">
-              Microphone access was blocked. You can still continue by typing your answers, or enable the
-              microphone in your browser settings and retry.
+              Camera/microphone access was blocked. Enable it in your browser’s site settings and click “Enable camera &amp; microphone” again, or continue with typed answers below.
             </p>
           )}
-          {micState === 'unavailable' && (
+          {(media === 'unavailable' || media === 'unsupported') && (
             <p className="mt-3 text-xs font-medium text-destructive">
-              No microphone was detected. You can continue by typing your answers.
+              {media === 'unsupported'
+                ? 'Your browser does not support in-browser recording. Please use a recent Chrome or Edge on a laptop/desktop, or continue with typed answers.'
+                : 'No camera or microphone was detected. You can continue with typed answers.'}
             </p>
           )}
           {turnError && <p className="mt-3 text-xs font-medium text-destructive">{turnError}</p>}
 
-          <button
-            onClick={startInterview}
-            disabled={processing || micState === 'requesting'}
-            className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition hover:opacity-90 disabled:opacity-50"
-          >
-            {processing || micState === 'requesting' ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" /> Preparing…
-              </>
-            ) : (
-              <>
-                <Mic className="h-4 w-4" /> Start Interview
-              </>
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+            <button
+              onClick={startInterview}
+              disabled={processing || media === 'requesting'}
+              className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50"
+            >
+              {processing || media === 'requesting'
+                ? <><Loader2 className="h-4 w-4 animate-spin" /> Preparing…</>
+                : <><Video className="h-4 w-4" /> {resuming ? 'Continue interview' : 'Start interview'}</>}
+            </button>
+            {media !== 'granted' && (
+              <button
+                onClick={() => { setUseTextFallback(true); startInterview(); }}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-semibold hover:bg-muted"
+              >
+                <Keyboard className="h-4 w-4" /> Continue with typed answers
+              </button>
             )}
-          </button>
+          </div>
         </div>
       </Centered>
     );
   }
 
-  // phase === 'interview'
+  // ---- phase === 'interview' ----
   const qNum = question?.question_number || 1;
   const qTotal = question?.total_questions || session?.total_questions || 1;
+  const mmss = `${String(Math.floor(recSeconds / 60)).padStart(2, '0')}:${String(recSeconds % 60).padStart(2, '0')}`;
 
   return (
-    <Centered>
-      <div className="w-full max-w-xl">
-        <div className="mb-4 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          <span>AI Interview · {session?.job_title}</span>
-          <span>
-            {question?.is_followup ? 'Follow-up' : `Question ${qNum} of ${qTotal}`}
-          </span>
+    <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-5 sm:py-8">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+          AI Video Interview · {session?.job_title}
+        </p>
+        <div className="flex items-center gap-3">
+          <StatusPill on={camOn} onIcon={<Video size={13} />} offIcon={<VideoOff size={13} />} label={camOn ? 'Camera on' : 'Camera off'} />
+          <StatusPill on={micOn} onIcon={<Mic size={13} />} offIcon={<MicOff size={13} />} label={micOn ? 'Mic on' : 'Mic off'} />
+          <button
+            onClick={endInterviewEarly}
+            className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive hover:bg-destructive/20"
+          >
+            End interview
+          </button>
         </div>
+      </div>
 
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${Math.min(100, (qNum / qTotal) * 100)}%` }}
-          />
-        </div>
+      <div className="mb-4 h-1.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={qNum} aria-valuemax={qTotal}>
+        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${Math.min(100, (qNum / qTotal) * 100)}%` }} />
+      </div>
 
-        <div className="mt-6 rounded-2xl border border-border bg-card p-6 shadow-xl">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10">
-              <Volume2 size={14} />
+      <div className="grid flex-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
+        {/* Candidate video */}
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-black">
+          {useTextFallback ? (
+            <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-2 p-6 text-center text-white/60">
+              <Keyboard className="h-8 w-8" />
+              <span className="text-sm">Typed-answer mode — no camera</span>
             </div>
-            AI Interviewer
+          ) : (
+            <video ref={videoElRef} autoPlay muted playsInline className="h-full min-h-[240px] w-full object-cover [transform:scaleX(-1)]" />
+          )}
+          {recording && (
+            <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-destructive px-2.5 py-1 text-xs font-bold text-white" aria-live="polite">
+              <Circle size={9} className="animate-pulse fill-white" /> REC {mmss}
+            </div>
+          )}
+        </div>
+
+        {/* AI interviewer + controls */}
+        <div className="flex flex-col gap-4">
+          <div className="rounded-2xl border border-border bg-card p-5">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-primary">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 ${aiSpeaking ? 'animate-pulse' : ''}`}>
+                <Volume2 size={15} />
+              </div>
+              AI Interviewer
+            </div>
+
+            <p className="mt-3 text-lg font-medium leading-relaxed text-foreground">{question?.question_text}</p>
+
+            <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground" aria-live="polite">
+              {aiSpeaking ? (
+                <span className="flex items-center gap-1.5 text-primary">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" /> Speaking…
+                </span>
+              ) : recording ? (
+                <span className="flex items-center gap-1.5 text-destructive">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-destructive" /> Listening — recording your answer
+                </span>
+              ) : processing ? (
+                <span>Processing your answer…</span>
+              ) : (
+                <span>Waiting for your answer</span>
+              )}
+              {!aiSpeaking && question?.audio_file && (
+                <button onClick={replayAudio} className="flex items-center gap-1 hover:text-foreground">
+                  <Play size={12} /> Replay
+                </button>
+              )}
+            </div>
+
+            <p className="mt-3 text-xs font-semibold text-muted-foreground">
+              {question?.is_followup ? 'Follow-up question' : `Question ${qNum} of ${qTotal}`}
+            </p>
           </div>
 
-          <p className="mt-4 text-lg font-medium leading-relaxed text-foreground">
-            {question?.question_text}
-          </p>
-
-          <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
-            {aiSpeaking ? (
-              <span className="flex items-center gap-1.5 text-primary">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" /> AI speaking…
-              </span>
-            ) : question?.audio_file ? (
-              <button onClick={replayAudio} className="flex items-center gap-1 hover:text-foreground">
-                <Play size={12} /> Replay question
-              </button>
-            ) : null}
-          </div>
-
-          <div className="mt-6 border-t border-border pt-6">
+          <div className="rounded-2xl border border-border bg-card p-5">
             {processing ? (
               <div className="flex items-center justify-center gap-2 py-4 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Processing your answer…
+                <Loader2 className="h-4 w-4 animate-spin" /> Processing…
               </div>
             ) : useTextFallback ? (
               <div>
+                <label htmlFor="ans" className="sr-only">Your answer</label>
                 <textarea
+                  id="ans"
                   value={textAnswer}
                   onChange={(e) => setTextAnswer(e.target.value)}
                   placeholder="Type your answer…"
-                  className="h-28 w-full resize-none rounded-xl border border-border bg-background p-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  className="h-28 w-full resize-none rounded-xl border border-border bg-background p-3 text-sm outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
                 />
                 <button
                   onClick={turnError ? retryTurn : submitTextAnswer}
@@ -414,22 +522,14 @@ export default function CandidateInterviewPage() {
                 >
                   {turnError ? 'Retry submit' : 'Submit answer'}
                 </button>
-                {streamRef.current && (
-                  <button
-                    onClick={() => setUseTextFallback(false)}
-                    className="mt-2 w-full text-center text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Switch back to voice
-                  </button>
-                )}
               </div>
             ) : recording ? (
               <button
                 onClick={stopAndSubmit}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-destructive/10 text-sm font-bold text-destructive transition hover:bg-destructive/20"
+                aria-label="Finish answer and submit"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-destructive/10 text-sm font-bold text-destructive hover:bg-destructive/20 focus-visible:ring-2 focus-visible:ring-destructive/40"
               >
-                <span className="flex h-2.5 w-2.5 animate-pulse rounded-full bg-destructive" />
-                <Square size={14} /> Stop answer
+                <Square size={14} /> Finish answer ({mmss})
               </button>
             ) : turnError ? (
               <div>
@@ -445,24 +545,50 @@ export default function CandidateInterviewPage() {
               <button
                 onClick={beginRecording}
                 disabled={aiSpeaking}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition hover:opacity-90 disabled:opacity-50"
+                aria-label="Start recording your answer"
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-primary/40"
               >
-                {streamRef.current ? <Mic size={16} /> : <MicOff size={16} />}
-                {streamRef.current ? 'Record answer' : 'Type answer instead'}
+                <Mic size={16} /> {aiSpeaking ? 'Please wait…' : 'Record answer'}
               </button>
             )}
+            <p className="mt-3 text-center text-[11px] text-muted-foreground">
+              Your video answer is recorded and reviewed by the hiring team. Do not refresh unless necessary — your progress is saved.
+            </p>
           </div>
         </div>
-
-        <p className="mt-4 text-center text-[11px] text-muted-foreground">
-          Your answers are recorded and reviewed by the hiring team. Do not refresh unless necessary — your
-          progress is saved.
-        </p>
       </div>
-    </Centered>
+    </div>
   );
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
   return <div className="flex min-h-screen items-center justify-center p-4">{children}</div>;
+}
+
+function Check({ label, ok, bad }: { label: string; ok: boolean; bad?: boolean }) {
+  return (
+    <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2">
+      <span className="text-muted-foreground">{label}</span>
+      {ok ? (
+        <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><CheckCircle2 size={14} /> Ready</span>
+      ) : bad ? (
+        <span className="flex items-center gap-1 text-xs font-semibold text-destructive"><AlertCircle size={14} /> Not available</span>
+      ) : (
+        <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground"><Loader2 size={13} className="animate-spin" /> Checking</span>
+      )}
+    </div>
+  );
+}
+
+function StatusPill({ on, onIcon, offIcon, label }: { on: boolean; onIcon: React.ReactNode; offIcon: React.ReactNode; label: string }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
+        on ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-muted-foreground'
+      }`}
+      aria-live="polite"
+    >
+      {on ? onIcon : offIcon} {label}
+    </span>
+  );
 }

@@ -42,9 +42,11 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   
   const contentType = response.headers.get('content-type');
   if (contentType && (
-    contentType.includes('application/vnd') || 
+    contentType.includes('application/vnd') ||
     contentType.includes('text/csv') ||
-    contentType.includes('audio/')
+    contentType.includes('audio/') ||
+    contentType.includes('video/') ||
+    contentType.includes('application/octet-stream')
   )) {
       return response.blob();
   }

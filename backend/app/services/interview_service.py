@@ -11,7 +11,6 @@ All interview business logic lives here; route handlers stay thin. Reuses:
 import asyncio
 import logging
 import os
-import uuid
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 
@@ -35,12 +34,12 @@ from app.models.interview import (
 from app.services.audit_service import AuditService
 from app.services.email_service import EmailService
 from app.services import interview_prompt_engine as ipe
+from app.services.interview_storage import InterviewStorage
 from app.services.tts_service import TTSService
 from app.services.voice_service import VoiceService
 
 logger = logging.getLogger(__name__)
 
-INTERVIEW_AUDIO_DIR = os.path.join("temp", "interview_audio")
 RUBRIC_VERSION = "interview-rubric-v1"
 # Candidate statuses from which an AI interview may be created (business rule #1).
 INVITABLE_CANDIDATE_STATUSES = {"interested", "interview", "interview_completed"}
@@ -64,9 +63,22 @@ def _serialize(doc: dict) -> dict:
                 "decided_at", "created_at", "updated_at"):
         if key in out:
             out[key] = _iso(out[key])
-    for ans in out.get("answers", []) or []:
-        if isinstance(ans, dict) and "answered_at" in ans:
-            ans["answered_at"] = _iso(ans["answered_at"])
+    # Redact raw storage paths from answers; expose only booleans + the answer index
+    # so a recruiter can stream a recording through the authenticated endpoint.
+    redacted = []
+    for i, ans in enumerate(out.get("answers", []) or []):
+        if not isinstance(ans, dict):
+            redacted.append(ans)
+            continue
+        a = {k: v for k, v in ans.items() if k not in ("audio_ref", "video_ref")}
+        a["answer_index"] = i
+        a["has_video"] = bool(ans.get("video_ref"))
+        a["has_audio"] = bool(ans.get("audio_ref"))
+        if "answered_at" in a:
+            a["answered_at"] = _iso(a["answered_at"])
+        redacted.append(a)
+    if "answers" in out:
+        out["answers"] = redacted
     for t in out.get("transcript", []) or []:
         if isinstance(t, dict) and "ts" in t:
             t["ts"] = _iso(t["ts"])
@@ -500,11 +512,15 @@ class InterviewService:
         first_name = ((candidate or {}).get("name") or "there").split(" ")[0]
         job_title = (interview.get("snapshot") or {}).get("job_title") or "the role"
         plan = interview.get("question_plan") or []
+        answered = _answered_count(interview)
         return {
             "candidate_first_name": first_name,
             "job_title": job_title,
             "status": interview.get("status"),
+            "mode": "video",
             "total_questions": _base_question_count(plan),
+            "answered_questions": answered,
+            "in_progress": interview.get("status") == "in_progress",
             "already_completed": interview.get("status") == "completed",
             "assesses": ["Technical knowledge", "Problem solving", "Role-specific skills", "Communication"],
         }
@@ -542,7 +558,13 @@ class InterviewService:
 
     @staticmethod
     async def process_turn(
-        token: str, *, audio: Optional[UploadFile] = None, answer_text: Optional[str] = None, turn_seq: Optional[int] = None
+        token: str,
+        *,
+        audio: Optional[UploadFile] = None,
+        video: Optional[UploadFile] = None,
+        answer_text: Optional[str] = None,
+        turn_seq: Optional[int] = None,
+        duration_seconds: Optional[int] = None,
     ) -> dict:
         interview = await resolve_interview_by_token(token, require_active=True)
         db = get_db()
@@ -573,13 +595,29 @@ class InterviewService:
 
         analysis = {"ask_followup": False, "followup_text": None}
         if not already_answered:
-            # 1. Obtain the answer text (STT for audio, or a typed fallback).
-            transcript_text = ""
+            # 1. Persist media (video for review, audio for STT), then transcribe.
+            #    The full video is NEVER read into the DB or sent to the LLM.
             audio_ref = None
+            video_ref = None
+            transcript_text = ""
             transcribed = False
+
+            if video is not None:
+                video_ref = await InterviewStorage.save_upload(
+                    interview_id=interview["id"], category="interview_video",
+                    upload=video, question_id=pending["id"],
+                )
             if audio is not None:
-                audio_ref = await InterviewService._save_answer_audio(interview["id"], pending["id"], audio)
-                transcript_text = await InterviewService._transcribe(audio_ref)
+                audio_ref = await InterviewStorage.save_upload(
+                    interview_id=interview["id"], category="interview_audio",
+                    upload=audio, question_id=pending["id"],
+                )
+
+            # STT: prefer the small dedicated audio clip; else fall back to the
+            # video file (OpenAI Whisper extracts audio from webm/mp4).
+            stt_source = audio_ref or video_ref
+            if stt_source:
+                transcript_text = await InterviewService._transcribe(InterviewStorage.abs_path(stt_source))
                 transcribed = bool(transcript_text)
             elif answer_text:
                 transcript_text = answer_text.strip()
@@ -591,9 +629,11 @@ class InterviewService:
                 "question_id": pending["id"],
                 "answer_text": transcript_text,
                 "audio_ref": audio_ref,
+                "video_ref": video_ref,
                 "transcribed": transcribed,
                 "score": None,
                 "feedback": None,
+                "duration_seconds": duration_seconds,
                 "answered_at": now,
             }
             await db.interviews.update_one(
@@ -601,6 +641,12 @@ class InterviewService:
                 {"$push": {"answers": answer_entry, "transcript": {"role": "candidate", "text": transcript_text, "ts": now}},
                  "$set": {"updated_at": now}},
             )
+            if video_ref:
+                await AuditService.record(
+                    organization_id=interview["organization_id"], event_type="interview_video_uploaded",
+                    actor_type="candidate", candidate_id=interview["candidate_id"], job_id=interview.get("job_id"),
+                    interview_id=interview["id"], payload={"question_id": pending["id"]},
+                )
 
             # 2. Analyse the answer + decide whether ONE follow-up would help.
             followups_remaining = max(0, settings.INTERVIEW_MAX_FOLLOWUPS - followups_used)
@@ -817,15 +863,29 @@ class InterviewService:
         }
 
     @staticmethod
-    async def _save_answer_audio(interview_id: str, question_id: str, audio: UploadFile) -> str:
-        folder = os.path.join(INTERVIEW_AUDIO_DIR, interview_id)
-        os.makedirs(folder, exist_ok=True)
-        ext = os.path.splitext(audio.filename or "")[1].lower() or ".webm"
-        rel_path = os.path.join(folder, f"{question_id}_{uuid.uuid4().hex}{ext}")
-        content = await audio.read()
-        with open(rel_path, "wb") as f:
-            f.write(content)
-        return rel_path
+    async def get_recording(*, org_id: str, interview_id: str, answer_index: int) -> Dict[str, Any]:
+        """Recruiter-only: resolve the stored video (or audio) recording for one
+        answer. Returns {path, media_type, filename}. Org-scoped."""
+        db = get_db()
+        interview = await db.interviews.find_one(
+            {"id": interview_id, "organization_id": org_id}, {"_id": 0, "answers": 1}
+        )
+        if not interview:
+            raise HTTPException(status_code=404, detail="Interview not found")
+        answers = interview.get("answers") or []
+        if answer_index < 0 or answer_index >= len(answers):
+            raise HTTPException(status_code=404, detail="Answer not found")
+        ans = answers[answer_index]
+        ref = ans.get("video_ref") or ans.get("audio_ref")
+        if not ref or not InterviewStorage.exists(ref):
+            raise HTTPException(status_code=404, detail="No recording available for this answer")
+        path = InterviewStorage.abs_path(ref)
+        ext = os.path.splitext(path)[1].lower()
+        media_type = {
+            ".webm": "video/webm", ".mp4": "video/mp4",
+            ".m4a": "audio/mp4", ".ogg": "audio/ogg", ".wav": "audio/wav", ".mp3": "audio/mpeg",
+        }.get(ext, "application/octet-stream")
+        return {"path": path, "media_type": media_type, "filename": os.path.basename(path)}
 
     @staticmethod
     async def _transcribe(audio_path: str) -> str:

@@ -7,6 +7,14 @@
  */
 import { API_BASE_URL } from '@/lib/api';
 
+function extFor(blob: Blob): string {
+  const t = blob.type || '';
+  if (t.includes('mp4')) return '.mp4';
+  if (t.includes('ogg')) return '.ogg';
+  if (t.includes('wav')) return '.wav';
+  return '.webm';
+}
+
 async function request(path: string, options: RequestInit = {}) {
   const res = await fetch(`${API_BASE_URL}${path}`, options);
   if (!res.ok) {
@@ -31,12 +39,20 @@ export const interviewApi = {
   start: (token: string) =>
     request(`/interview-session/${encodeURIComponent(token)}/start`, { method: 'POST' }),
 
-  /** Submit an answer. `audio` is a Blob from MediaRecorder; falls back to text. */
-  turn: (token: string, opts: { audio?: Blob; answerText?: string; turnSeq?: number }) => {
+  /**
+   * Submit an answer. Video interview sends both `video` (for review) and a small
+   * `audio` clip (for STT); text is the accessibility fallback.
+   */
+  turn: (
+    token: string,
+    opts: { video?: Blob; audio?: Blob; answerText?: string; turnSeq?: number; durationSeconds?: number },
+  ) => {
     const form = new FormData();
-    if (opts.audio) form.append('audio', opts.audio, 'answer.webm');
+    if (opts.video) form.append('video', opts.video, `answer${extFor(opts.video)}`);
+    if (opts.audio) form.append('audio', opts.audio, `answer-audio${extFor(opts.audio)}`);
     if (opts.answerText) form.append('answer_text', opts.answerText);
     if (opts.turnSeq != null) form.append('turn_seq', String(opts.turnSeq));
+    if (opts.durationSeconds != null) form.append('duration_seconds', String(Math.round(opts.durationSeconds)));
     return request(`/interview-session/${encodeURIComponent(token)}/turn`, {
       method: 'POST',
       body: form,

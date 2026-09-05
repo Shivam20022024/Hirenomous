@@ -92,6 +92,21 @@ async def get_transcript(interview_id: str, org_id: str = Depends(get_context_or
     return await InterviewService.get_transcript(org_id=org_id, interview_id=interview_id)
 
 
+@recruiter_router.get("/{interview_id}/recording/{answer_index}")
+async def get_recording(
+    interview_id: str,
+    answer_index: int,
+    org_id: str = Depends(get_context_organization_id),
+    user: UserInDB = Depends(get_current_active_user),
+):
+    """Stream one answer's recording. Recruiter JWT + org-scoped; never exposed
+    through the candidate token endpoints. Supports HTTP Range for seeking."""
+    rec = await InterviewService.get_recording(
+        org_id=org_id, interview_id=interview_id, answer_index=answer_index
+    )
+    return FileResponse(rec["path"], media_type=rec["media_type"], filename=rec["filename"])
+
+
 @recruiter_router.post("/{interview_id}/decision")
 async def recruiter_decision(
     interview_id: str,
@@ -124,14 +139,17 @@ async def start_session(token: str = Path(..., min_length=20)):
 @candidate_router.post("/{token}/turn")
 async def process_turn(
     token: str = Path(..., min_length=20),
+    video: Optional[UploadFile] = File(None),
     audio: Optional[UploadFile] = File(None),
     answer_text: Optional[str] = Form(None),
     turn_seq: Optional[int] = Form(None),
+    duration_seconds: Optional[int] = Form(None),
 ):
-    if audio is None and not answer_text:
-        raise HTTPException(status_code=400, detail="Provide either an audio recording or answer_text.")
+    if video is None and audio is None and not answer_text:
+        raise HTTPException(status_code=400, detail="Provide a video/audio recording or answer_text.")
     return await InterviewService.process_turn(
-        token, audio=audio, answer_text=answer_text, turn_seq=turn_seq
+        token, video=video, audio=audio, answer_text=answer_text,
+        turn_seq=turn_seq, duration_seconds=duration_seconds,
     )
 
 

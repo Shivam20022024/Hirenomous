@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Check, X, HelpCircle, FileText, RefreshCw, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X, HelpCircle, FileText, RefreshCw, MessageSquare, Video, Play } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 
 const REC_LABEL: Record<string, string> = {
@@ -34,21 +34,45 @@ export default function InterviewReportPage() {
   const router = useRouter();
 
   const [report, setReport] = useState<any>(null);
+  const [detail, setDetail] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [transcript, setTranscript] = useState<any[] | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [recording, setRecording] = useState<{ url: string; title: string } | null>(null);
+  const [recLoading, setRecLoading] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
     try {
-      const r = await fetchApi(`/interviews/${id}/report`);
+      const [r, d] = await Promise.all([
+        fetchApi(`/interviews/${id}/report`),
+        fetchApi(`/interviews/${id}`).catch(() => null),
+      ]);
       setReport(r);
+      setDetail(d);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const viewRecording = async (answerIndex: number, title: string) => {
+    setRecLoading(answerIndex);
+    try {
+      const blob = await fetchApi(`/interviews/${id}/recording/${answerIndex}`);
+      setRecording({ url: URL.createObjectURL(blob as Blob), title });
+    } catch (err: any) {
+      alert(err.message || 'Recording not available.');
+    } finally {
+      setRecLoading(null);
+    }
+  };
+
+  const closeRecording = () => {
+    if (recording) URL.revokeObjectURL(recording.url);
+    setRecording(null);
   };
 
   useEffect(() => {
@@ -235,6 +259,40 @@ export default function InterviewReportPage() {
             </div>
           )}
 
+          {/* Answer recordings (recruiter-only, streamed through the authenticated endpoint) */}
+          {detail?.answers?.some((a: any) => a.has_video || a.has_audio) && (
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
+                <Video size={15} /> Answer Recordings
+              </h3>
+              <div className="space-y-2">
+                {detail.answers.map((a: any) => {
+                  if (!a.has_video && !a.has_audio) return null;
+                  const q = (detail.question_plan || []).find((x: any) => x.id === a.question_id);
+                  const title = q?.text || `Answer ${a.answer_index + 1}`;
+                  return (
+                    <div key={a.answer_index} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
+                      <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                        {q?.is_followup ? 'Follow-up: ' : ''}{title}
+                      </p>
+                      <button
+                        onClick={() => viewRecording(a.answer_index, title)}
+                        disabled={recLoading === a.answer_index}
+                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold hover:bg-muted disabled:opacity-50"
+                      >
+                        {recLoading === a.answer_index ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
+                        {a.has_video ? 'View recording' : 'Play audio'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-[11px] text-muted-foreground">
+                Recordings are for interview review only. AI scoring is based solely on the answer transcript — never on appearance.
+              </p>
+            </div>
+          )}
+
           {/* Interview meta */}
           <div className="flex flex-wrap gap-6 rounded-2xl border border-border bg-card p-6 text-sm">
             <div>
@@ -301,6 +359,21 @@ export default function InterviewReportPage() {
             completing an interview never does this.
           </p>
         </>
+      )}
+
+      {/* Recording modal */}
+      {recording && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm" onClick={closeRecording}>
+          <div className="relative w-full max-w-3xl rounded-2xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
+              <h2 className="flex items-center gap-2 text-sm font-bold"><Video size={16} /> {recording.title}</h2>
+              <button onClick={closeRecording} className="rounded-full p-2 text-muted-foreground hover:bg-muted"><X size={18} /></button>
+            </div>
+            <div className="p-4">
+              <video src={recording.url} controls autoPlay className="w-full rounded-lg bg-black" />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Transcript modal */}

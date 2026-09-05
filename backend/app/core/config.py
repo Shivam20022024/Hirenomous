@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     INTERVIEW_TTS_VOICE: str = "alloy"
     # Optional dedicated secret for hashing interview tokens; falls back to SECRET_KEY env if unset.
     INTERVIEW_TOKEN_SECRET: Optional[str] = None
+    # Local media store for interview video/audio recordings (swap for object storage in prod).
+    INTERVIEW_MEDIA_DIR: str = "media/interviews"
+    INTERVIEW_MEDIA_MAX_MB: int = 200
 
     # Email Settings
     SMTP_HOST: Optional[str] = None

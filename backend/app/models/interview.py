@@ -36,10 +36,12 @@ class InterviewQuestion(BaseModel):
 class InterviewAnswer(BaseModel):
     question_id: str
     answer_text: Optional[str] = None
-    audio_ref: Optional[str] = None          # relative path to the stored audio file, never the blob
+    audio_ref: Optional[str] = None          # storage ref for the audio clip used for STT — never the blob
+    video_ref: Optional[str] = None          # storage ref for the video recording (recruiter review only)
     transcribed: bool = False
     score: Optional[float] = None            # per-answer 0-100, advisory
     feedback: Optional[str] = None
+    duration_seconds: Optional[int] = None
     answered_at: datetime = Field(default_factory=datetime.utcnow)
 
 
