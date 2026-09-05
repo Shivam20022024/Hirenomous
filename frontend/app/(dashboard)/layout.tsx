@@ -14,7 +14,8 @@ import {
   Bot,
   Phone,
   Briefcase,
-  Settings
+  Settings,
+  ClipboardCheck
 } from 'lucide-react';
 
 const navigation = [
@@ -24,6 +25,7 @@ const navigation = [
   { name: 'Candidate Profiles', href: '/resumes', icon: FileText },
   { name: 'AI Hiring Assistant', href: '/ai-recruiter', icon: Bot },
   { name: 'Calling Campaigns', href: '/campaigns', icon: Phone },
+  { name: 'AI Interviews', href: '/interviews', icon: ClipboardCheck },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

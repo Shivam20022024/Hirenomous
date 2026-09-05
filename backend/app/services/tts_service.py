@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 class TTSService:
     @staticmethod
-    async def generate_speech(text: str) -> str:
+    async def generate_speech(text: str, voice: str = "alloy") -> str:
         """
         Converts text to speech using OpenAI TTS API and returns the path to the saved file.
         """
@@ -21,11 +21,11 @@ class TTSService:
             "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
             "Content-Type": "application/json"
         }
-        
+
         payload = {
             "model": "tts-1",
             "input": text,
-            "voice": "alloy" # Optional: could make this configurable
+            "voice": voice or "alloy"
         }
 
         async with httpx.AsyncClient() as client:

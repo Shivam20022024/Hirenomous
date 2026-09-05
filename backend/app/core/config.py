@@ -52,6 +52,16 @@ class Settings(BaseSettings):
     # Google Drive Settings (for importing resumes from Drive folders)
     GOOGLE_DRIVE_API_KEY: Optional[str] = None
 
+    # AI Interview Settings
+    # Public base URL of the candidate-facing frontend, used to build interview links.
+    INTERVIEW_PUBLIC_BASE_URL: str = "http://localhost:3000"
+    INTERVIEW_TOKEN_TTL_HOURS: int = 72
+    INTERVIEW_QUESTION_COUNT: int = 8
+    INTERVIEW_MAX_FOLLOWUPS: int = 3
+    INTERVIEW_TTS_VOICE: str = "alloy"
+    # Optional dedicated secret for hashing interview tokens; falls back to SECRET_KEY env if unset.
+    INTERVIEW_TOKEN_SECRET: Optional[str] = None
+
     # Email Settings
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587

@@ -79,7 +79,8 @@ def format_candidate_response(c: dict):
         "confidence_score": c.get("confidence_score"),
         "final_recommendation": c.get("final_recommendation"),
         "recording_url": c.get("recording_url"),
-        "interview_date": c.get("interview_date")
+        "interview_date": c.get("interview_date"),
+        "latest_interview_id": c.get("latest_interview_id"),
     }
 
 

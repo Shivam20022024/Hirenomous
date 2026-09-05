@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, Mail, Phone, ExternalLink, Download, Clock, Trash2, X, FileText, Play, Eye, Loader2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Mail, Phone, ExternalLink, Download, Clock, Trash2, X, FileText, Play, Eye, Loader2, ClipboardCheck, Check } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 
 export default function CandidatesPage() {
+  const router = useRouter();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +82,55 @@ export default function CandidatesPage() {
     }
   };
 
+  const handleInviteInterview = async (candidate: any) => {
+    if (!confirm(`Invite ${candidate.name} to an AI interview? This does NOT select the candidate.`)) return;
+    setActionLoading(true);
+    try {
+      const res = await fetchApi('/interviews', {
+        method: 'POST',
+        body: JSON.stringify({ candidate_id: candidate.candidate_id, job_id: candidate.job_id || null }),
+      });
+      const sent = res?.invite?.sent;
+      const iid = res?.interview?.id;
+      alert(
+        sent
+          ? 'AI interview created and invitation email sent.'
+          : `AI interview created. Invitation email not sent (${res?.invite?.reason || 'no email / SMTP not configured'}). Link: ${res?.interview_url || 'n/a'}`
+      );
+      await loadData();
+      if (iid) router.push(`/interviews/${iid}`);
+    } catch (err: any) {
+      alert(`Failed to create interview: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleInterviewDecision = async (candidate: any, decision: 'select' | 'reject') => {
+    if (!candidate.latest_interview_id) {
+      alert('No interview found for this candidate.');
+      return;
+    }
+    if (!confirm(`Are you sure you want to ${decision} ${candidate.name}?`)) return;
+    setActionLoading(true);
+    try {
+      const res = await fetchApi(`/interviews/${candidate.latest_interview_id}/decision`, {
+        method: 'POST',
+        body: JSON.stringify({ decision }),
+      });
+      if (decision === 'select') {
+        const em = res?.selection_email;
+        alert(em?.sent ? 'Candidate selected — selection email sent.' : `Candidate selected. Selection email not sent (${em?.errors?.[0] || 'SMTP not configured'}).`);
+      }
+      setSelectedCandidate(null);
+      await loadData();
+    } catch (err: any) {
+      alert(`Failed: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleDelete = async (e: React.MouseEvent, candidateId: string) => {
     e.stopPropagation();
     if (!confirm('Are you sure you want to delete this candidate?')) return;
@@ -107,16 +158,21 @@ export default function CandidatesPage() {
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
-      case 'shortlisted': 
+      case 'shortlisted':
       case 'interested':
+      case 'selected':
+      case 'hired':
         return 'bg-emerald-100 text-emerald-800';
-      case 'rejected': 
+      case 'rejected':
       case 'not_interested':
         return 'bg-destructive/10 text-destructive';
-      case 'pending': 
+      case 'pending':
       case 'callback_required':
         return 'bg-orange-100 text-orange-800';
-      default: 
+      case 'interview':
+      case 'interview_completed':
+        return 'bg-blue-100 text-blue-800';
+      default:
         return 'bg-muted text-muted-foreground';
     }
   };
@@ -141,9 +197,16 @@ export default function CandidatesPage() {
           </select>
           <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="h-11 rounded-xl border-2 border-primary/30 bg-primary/5 px-3 text-sm font-semibold text-primary outline-none">
             <option value="">All Statuses</option>
+            <option value="SHORTLISTED">Shortlisted</option>
+            <option value="CALLING">Calling</option>
             <option value="INTERESTED">Interested</option>
             <option value="CALLBACK_REQUIRED">Callback Required</option>
             <option value="NOT_INTERESTED">Not Interested</option>
+            <option value="INTERVIEW">AI Interview</option>
+            <option value="INTERVIEW_COMPLETED">Interview Completed</option>
+            <option value="SELECTED">Selected</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="HIRED">Hired</option>
           </select>
           <button onClick={handleSendEmail} disabled={actionLoading} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/5 px-4 text-sm font-bold text-primary shadow-sm hover:bg-primary/10 disabled:opacity-50">
             {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <Mail size={16} className="mr-2" />} Email Interested
@@ -275,6 +338,67 @@ export default function CandidatesPage() {
                   <div className="flex items-center gap-2"><Clock size={14} className="text-muted-foreground"/> {new Date(selectedCandidate.created_at).toLocaleString()}</div>
                 )}
               </div>
+
+              {/* AI Interview actions — mirror the hiring flow: invite (interested) -> view (in progress) -> report + decide (completed) */}
+              {(['interested', 'interview', 'interview_completed'].includes(String(selectedCandidate.status).toLowerCase()) || selectedCandidate.latest_interview_id) && (
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <ClipboardCheck size={16} className="text-primary" />
+                  <span className="text-sm font-semibold text-foreground mr-1">AI Interview</span>
+
+                  {String(selectedCandidate.status).toLowerCase() === 'interested' && !selectedCandidate.latest_interview_id && (
+                    <button
+                      onClick={() => handleInviteInterview(selectedCandidate)}
+                      disabled={actionLoading}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    >
+                      {actionLoading ? <Loader2 size={13} className="animate-spin" /> : <ClipboardCheck size={13} />} Invite to AI Interview
+                    </button>
+                  )}
+
+                  {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview' && (
+                    <button
+                      onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-semibold hover:bg-muted"
+                    >
+                      <Eye size={13} /> View Interview
+                    </button>
+                  )}
+
+                  {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview_completed' && (
+                    <>
+                      <button
+                        onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-semibold hover:bg-muted"
+                      >
+                        <FileText size={13} /> View AI Report
+                      </button>
+                      <button
+                        onClick={() => handleInterviewDecision(selectedCandidate, 'select')}
+                        disabled={actionLoading}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                      >
+                        <Check size={13} /> Select Candidate
+                      </button>
+                      <button
+                        onClick={() => handleInterviewDecision(selectedCandidate, 'reject')}
+                        disabled={actionLoading}
+                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3 text-xs font-semibold text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                      >
+                        <X size={13} /> Reject Candidate
+                      </button>
+                    </>
+                  )}
+
+                  {['selected', 'rejected'].includes(String(selectedCandidate.status).toLowerCase()) && selectedCandidate.latest_interview_id && (
+                    <button
+                      onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}
+                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-semibold hover:bg-muted"
+                    >
+                      <FileText size={13} /> View AI Report
+                    </button>
+                  )}
+                </div>
+              )}
 
               {selectedCandidate.summary && (
                 <div>

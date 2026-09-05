@@ -1,8 +1,11 @@
+import logging
 import smtplib
 from email.message import EmailMessage
 from typing import Iterable, Optional
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class EmailService:
@@ -107,6 +110,53 @@ class EmailService:
                 f"{company_name} Hiring Team"
             )
             return subject, body
+
+    @staticmethod
+    def build_interview_invite_email(
+        candidate: dict,
+        job_title: str,
+        interview_url: str,
+        expected_minutes: str = "20-30",
+        company_name: str = "Hireonomous",
+    ) -> tuple[str, str]:
+        """Dedicated AI Interview invitation email. Independent of the
+        shortlist / selection email — creating an interview must never send that."""
+        candidate_name = candidate.get("name", "Candidate")
+        role_display = job_title or "the open position"
+        subject = f"AI Interview Invitation – {role_display}"
+        body = (
+            f"Hi {candidate_name},\n\n"
+            f"Thank you for your interest in the {role_display} position.\n\n"
+            "You have been invited to complete an AI-powered interview. It will assess your "
+            "technical knowledge, problem solving, role-specific skills and communication.\n\n"
+            f"Interview duration:\nApproximately {expected_minutes} minutes.\n\n"
+            f"Interview link:\n{interview_url}\n\n"
+            "Before you begin:\n"
+            "- Use a quiet environment with a stable internet connection.\n"
+            "- Use a laptop or desktop with a working microphone (Chrome or Edge recommended).\n"
+            "- Allow microphone access when prompted.\n"
+            "- Complete the interview independently and in one sitting.\n\n"
+            "This link is personal to you and will expire, so please complete the interview soon.\n\n"
+            "Regards,\n"
+            f"{company_name} Hiring Team"
+        )
+        return subject, body
+
+    @staticmethod
+    def send_selection_email(candidate: dict, company_name: str) -> dict:
+        """Explicitly send the existing shortlist/selection email to a SINGLE
+        candidate. Reuses `build_shortlist_email`. Only ever called from an
+        explicit recruiter 'Select' action — never from any interview lifecycle."""
+        email = (candidate.get("email") or "").strip()
+        name = candidate.get("name") or "Candidate"
+        if not email or "@" not in email:
+            return {"sent": 0, "skipped": 1, "failed": 0, "errors": [f"{name}: no valid email"]}
+        try:
+            subject, body = EmailService.build_shortlist_email(candidate, company_name)
+            EmailService.send_email(email, subject, body)
+            return {"sent": 1, "skipped": 0, "failed": 0, "errors": []}
+        except Exception as exc:
+            return {"sent": 0, "skipped": 0, "failed": 1, "errors": [f"{name} <{email}>: {exc}"]}
 
     @staticmethod
     def send_email(to_email: str, subject: str, body: str) -> None:

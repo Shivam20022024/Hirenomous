@@ -89,6 +89,9 @@ def get_date_ranges(date_range: str, custom_start: Optional[str] = None, custom_
 
 def get_base_pipeline(metric: str):
     # Returns the $cond for the specific metric.
+    # NOTE: downstream funnel statuses are included in upstream metrics so the
+    # hiring funnel stays monotonic (a "selected" candidate also counts as having
+    # been "interested" and "interviewed").
     if metric == "candidates":
         return {"$literal": 1}
     if metric == "screened":
@@ -96,9 +99,11 @@ def get_base_pipeline(metric: str):
     if metric == "calls":
         return {"$cond": [{"$eq": ["$call_status", "completed"]}, 1, 0]}
     if metric == "interested":
-        return {"$cond": [{"$in": ["$status", ["interested", "interview_scheduled", "selected", "hired"]]}, 1, 0]}
+        return {"$cond": [{"$in": ["$status", ["interested", "interview", "interview_completed", "interview_scheduled", "selected", "hired"]]}, 1, 0]}
     if metric == "interviews":
-        return {"$cond": [{"$in": ["$status", ["interview_scheduled", "selected", "hired"]]}, 1, 0]}
+        # AI Interview stage: candidate has been invited to / has completed an AI interview,
+        # or progressed past it. (Legacy "interview_scheduled" kept for backward compatibility.)
+        return {"$cond": [{"$in": ["$status", ["interview", "interview_completed", "interview_scheduled", "selected", "hired"]]}, 1, 0]}
     if metric == "hired":
         return {"$cond": [{"$eq": ["$status", "hired"]}, 1, 0]}
     if metric == "callbacks":

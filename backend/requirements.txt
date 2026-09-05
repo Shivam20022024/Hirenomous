@@ -17,3 +17,4 @@ dnspython
 pandas
 passlib
 bcrypt==3.2.0
+PyJWT==2.8.0

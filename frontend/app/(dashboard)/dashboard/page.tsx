@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, useMemo } from 'react';
 import {
   ArrowDownToLine,
@@ -44,7 +45,7 @@ const METRIC_LABELS: Record<string, string> = {
   screened: 'AI screened',
   calls_completed: 'Calls completed',
   interested: 'Interested',
-  interviews: 'Interviews',
+  interviews: 'AI Interviews',
   selected: 'Selected',
   hired: 'Hired',
   callback_required: 'Callbacks needed'
@@ -152,7 +153,7 @@ export default function DashboardPage() {
     [funnelData?.candidates || '0', 'Applied'],
     [funnelData?.screened || '0', 'AI screened'],
     [funnelData?.interested || '0', 'Interested'],
-    [funnelData?.interview || '0', 'Interviews'],
+    [funnelData?.interview || '0', 'AI Interview'],
     [funnelData?.selected || '0', 'Selected'],
     [funnelData?.hired || '0', 'Hired']
   ];
@@ -212,15 +213,29 @@ export default function DashboardPage() {
             const change = dashboardData.trends[key] || 0;
             const color = METRIC_COLORS[key];
             const changeText = change > 0 ? `+${change}% vs previous` : change < 0 ? `${change}% vs previous` : '— 0% vs previous';
-            
-            return (
-              <article key={key} className="rounded-2xl border border-border bg-card p-5 shadow-[0_2px_8px_rgba(20,35,60,0.03)] transition-shadow hover:shadow-md">
+
+            const cardBody = (
+              <>
                 <div className="flex items-start justify-between">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-foreground opacity-80">{METRIC_LABELS[key]}</p>
                   <span className="rounded-xl bg-muted p-2 text-muted-foreground"><Icon size={16}/></span>
                 </div>
                 <p className={`mt-6 text-3xl font-bold tracking-[-0.06em] ${color}`}>{String(value)}</p>
                 <p className={`mt-1 text-xs ${change > 0 ? 'text-emerald-600' : 'text-muted-foreground'}`}>{changeText}</p>
+              </>
+            );
+            const cardClass = "block rounded-2xl border border-border bg-card p-5 shadow-[0_2px_8px_rgba(20,35,60,0.03)] transition-shadow hover:shadow-md";
+
+            if (key === 'interviews') {
+              return (
+                <Link key={key} href="/interviews" className={`${cardClass} hover:border-primary/40`}>
+                  {cardBody}
+                </Link>
+              );
+            }
+            return (
+              <article key={key} className={cardClass}>
+                {cardBody}
               </article>
             );
           })}

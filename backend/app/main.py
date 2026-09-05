@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import resume_routes, voice_routes, demo_voice_routes, simulation_routes, email_routes, job_board_routes, bolna_routes, auth_routes, superadmin_routes, analytics_routes, ai_recruiter_routes
+from app.api.routes import resume_routes, voice_routes, demo_voice_routes, simulation_routes, email_routes, job_board_routes, bolna_routes, auth_routes, superadmin_routes, analytics_routes, ai_recruiter_routes, interview_routes
 from app.core.database import connect_to_mongo, close_mongo_connection
 from app.core.config import settings
+from app.services.interview_service import ensure_interview_indexes
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -25,6 +26,7 @@ async def startup_db_client():
     print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}...")
     print(f"DEBUG: Connecting to database defined in .env.local...")
     await connect_to_mongo()
+    await ensure_interview_indexes()
     print(f"API is ready on port 8001")
 
 
@@ -43,6 +45,8 @@ app.include_router(email_routes.router, tags=["Email Interaction"])
 app.include_router(job_board_routes.router, tags=["Job Board Interaction"])
 app.include_router(analytics_routes.router, prefix="/analytics", tags=["Analytics"])
 app.include_router(ai_recruiter_routes.router, prefix="/api", tags=["AI Recruiter"])
+app.include_router(interview_routes.recruiter_router, tags=["AI Interview"])
+app.include_router(interview_routes.candidate_router, tags=["AI Interview (Candidate)"])
 
 
 @app.get("/")

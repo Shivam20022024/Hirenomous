@@ -24,3 +24,9 @@ htmlcov/
 
 # Build artifacts
 *.tsbuildinfo
+
+# Runtime scratch dirs (resume parsing, TTS output, interview audio)
+backend/temp_audio/
+backend/temp_resumes/
+backend/temp/
+backend/recordings/
