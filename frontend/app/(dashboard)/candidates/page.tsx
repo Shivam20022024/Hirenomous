@@ -53,9 +53,14 @@ export default function CandidatesPage() {
     }
   };
 
+  const interestedCount = candidates.filter(c => c.status?.toLowerCase() === 'interested').length;
+  const jobName = jobId ? (jobs.find(j => j.id === jobId)?.title || 'the selected job') : null;
+
   const handleSendEmail = async () => {
-    const scopeLabel = jobId ? `interested candidates for ${jobs.find(j => j.id === jobId)?.title || 'the selected job'}` : 'all interested candidates across every job';
-    if (!confirm(`Are you sure you want to email ${scopeLabel}?`)) return;
+    const scope = jobName
+      ? `the ${interestedCount} interested candidate(s) for "${jobName}"`
+      : `ALL interested candidates across EVERY job (${interestedCount} shown)`;
+    if (!confirm(`Send the "shortlisted" notification email to ${scope}?\n\nThis email has no interview link.`)) return;
     setActionLoading(true);
     try {
       const res = await fetchApi(`/email/send-shortlisted${jobId ? `?job_id=${jobId}` : ''}`, { method: 'POST' });
@@ -69,11 +74,13 @@ export default function CandidatesPage() {
   };
 
   const handleBulkInvite = async () => {
-    const scope = jobId ? `${jobs.find(j => j.id === jobId)?.title || 'the selected job'}` : 'every job';
-    const n = candidates.filter(c => c.status?.toLowerCase() === 'interested').length;
+    const scope = jobName
+      ? `the ${interestedCount} interested candidate(s) for "${jobName}"`
+      : `ALL interested candidates across EVERY job (${interestedCount} shown)`;
     if (!confirm(
-      `Invite the interested candidates for ${scope} to an AI video interview?\n\n` +
-      `This creates an interview and emails a secure interview link to each of them (${n} shown). It does NOT select anyone.`
+      `Invite ${scope} to an AI video interview?\n\n` +
+      `This creates an interview and emails a secure interview link to each. It does NOT select anyone.` +
+      (jobName ? '' : "\n\nTip: pick a job in the filter above to invite only that job's candidates.")
     )) return;
     setActionLoading(true);
     try {
