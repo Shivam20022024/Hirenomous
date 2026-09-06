@@ -5,6 +5,9 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
   
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    // Skips the ngrok free-tier browser-warning interstitial so API responses
+    // come back as JSON, not HTML (harmless / ignored on any other host).
+    'ngrok-skip-browser-warning': 'true',
     ...(options.headers as Record<string, string>),
   };
 

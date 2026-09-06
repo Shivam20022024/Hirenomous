@@ -16,7 +16,12 @@ function extFor(blob: Blob): string {
 }
 
 async function request(path: string, options: RequestInit = {}) {
-  const res = await fetch(`${API_BASE_URL}${path}`, options);
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    // Skip ngrok's free-tier browser-warning page so responses are JSON, not
+    // HTML (ignored on any other host, including Cloudflare Tunnel / prod).
+    headers: { 'ngrok-skip-browser-warning': 'true', ...(options.headers as Record<string, string>) },
+  });
   if (!res.ok) {
     let detail = `Request failed (${res.status})`;
     try {
