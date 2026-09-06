@@ -53,12 +53,15 @@ async def send_shortlisted_emails(job_id: Optional[str] = None, org_id: str = De
     # identical across a candidate's applications to different jobs.
     job_ids = list({c.get("job_id") for c in candidates if c.get("job_id")})
     if job_ids:
-        jobs_cursor = db.jobs_board.find({"id": {"$in": job_ids}}, {"_id": 0, "id": 1, "title": 1})
-        jobs_map = {j["id"]: j.get("title") async for j in jobs_cursor}
+        jobs_cursor = db.jobs_board.find({"id": {"$in": job_ids}}, {"_id": 0, "id": 1, "title": 1, "skills": 1})
+        jobs_map = {j["id"]: j async for j in jobs_cursor}
         for c in candidates:
-            resolved_title = jobs_map.get(c.get("job_id"))
-            if resolved_title:
-                c["job_title_for_email"] = resolved_title
+            job = jobs_map.get(c.get("job_id"))
+            if job:
+                if job.get("title"):
+                    c["job_title_for_email"] = job["title"]
+                if job.get("skills"):
+                    c["job_skills_for_email"] = job["skills"]
 
     # send_bulk_shortlist_emails does blocking network I/O (smtplib, requests) per
     # candidate. Run it in a worker thread so a slow/hung SMTP connection can't

@@ -472,9 +472,11 @@ class InterviewService:
             company_name = (org or {}).get("name") or "Our Company"
             cand_for_email = dict(candidate or {})
             if interview.get("job_id"):
-                job = await db.jobs_board.find_one({"id": interview["job_id"]}, {"_id": 0, "title": 1})
+                job = await db.jobs_board.find_one({"id": interview["job_id"]}, {"_id": 0, "title": 1, "skills": 1})
                 if job and job.get("title"):
                     cand_for_email["job_title_for_email"] = job["title"]
+                if job and job.get("skills"):
+                    cand_for_email["job_skills_for_email"] = job["skills"]
             email_result = await run_in_threadpool(EmailService.send_selection_email, cand_for_email, company_name)
             await AuditService.record(
                 organization_id=org_id, event_type="recruiter_selected", actor_type="recruiter",

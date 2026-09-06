@@ -20,96 +20,120 @@ class EmailService:
         ])
 
     @staticmethod
-    def build_shortlist_email(candidate: dict, company_name: str) -> tuple[str, str]:
-        candidate_name = candidate.get("name", "Candidate")
+    def build_shortlist_email(candidate: dict, company_name: str, stage: str = "shortlisted") -> tuple[str, str]:
+        """Progress-notification email.
 
-        # Prefer the actual job posting's title (resolved by the caller via job_id)
-        # over the candidate's resume-parsed `role` guess, which is set once at
-        # upload time and can be stale/generic or shared across a candidate's
-        # multiple applications to different jobs.
+        `stage="shortlisted"` -> "you've been shortlisted" (the "Email Interested" action).
+        `stage="selected"`    -> "we'd like to move forward" (explicit recruiter Select).
+
+        Contains NO meeting link and NO time slots — scheduling / next steps are
+        handled by the hiring team (or, for the interview stage, by the dedicated
+        AI Interview invitation email). The candidate's skills are their actual
+        resume-parsed skills; the job requirements come from the real posting when
+        the caller resolves them.
+        """
+        candidate_name = candidate.get("name") or "Candidate"
+
+        # Real job title resolved by the caller from jobs_board via job_id
+        # (falls back to the resume-parsed `role`).
         job_role = candidate.get("job_title_for_email") or candidate.get("role")
-        if not job_role or job_role in ["Not Assessed", "Manual Entry"]:
+        if not job_role or job_role in ["Not Assessed", "Manual Entry", "Unassigned"]:
             job_role_display = "an open position"
         else:
             job_role_display = f"the {job_role} position"
-            
-        meeting_link = "https://meet.google.com/hiring-novlantis"
-        time_slots = "Monday 10:00 AM EST, Tuesday 2:00 PM EST, Wednesday 11:30 AM EST"
-        
-        # Get AI summary based on candidate skills
-        skills = candidate.get("skills", [])
-        ai_summary = "Your strong background aligns perfectly with what we are looking for."
-        if skills:
-            ai_summary = f"Your background with {', '.join(skills[:3])} aligns perfectly with what we are looking for."
-            
+
+        resume_skills = [str(s) for s in (candidate.get("skills") or []) if s][:6]
+        job_skills = [str(s) for s in (candidate.get("job_skills_for_email") or []) if s][:8]
+
+        # Factual profile line — only what is actually in the resume / posting.
+        matched = [s for s in resume_skills if any(s.lower() in j.lower() or j.lower() in s.lower() for j in job_skills)]
+        if matched:
+            profile_line = f"Your experience with {', '.join(matched[:3])} is directly relevant to this role."
+        elif resume_skills:
+            profile_line = f"Your experience with {', '.join(resume_skills[:3])} stood out during our review."
+        else:
+            profile_line = "Your background was a good fit for what this role needs."
+
+        if stage == "selected":
+            subject = f"Update on your application - {job_role} at {company_name}" if job_role and job_role_display != "an open position" else f"Update on your application at {company_name}"
+            opening = (
+                f"We're pleased to let you know that we would like to move forward with your application for "
+                f"{job_role_display} at {company_name}."
+            )
+            next_steps = "Our hiring team will contact you shortly to discuss the next steps."
+        else:
+            subject = f"You've been shortlisted - {job_role} at {company_name}" if job_role and job_role_display != "an open position" else f"You've been shortlisted at {company_name}"
+            opening = (
+                f"Thank you for your interest in {job_role_display} at {company_name}. "
+                f"After reviewing your profile, we're pleased to tell you that you have been shortlisted."
+            )
+            next_steps = "Our hiring team will be in touch with the next steps in the process."
+
         prompt = f"""
-        You are an AI recruitment assistant.
+        You are a recruitment assistant writing a short, professional email to a candidate.
 
-        Your task is to generate a professional interview scheduling email for a candidate who has been shortlisted.
-
-        Input details:
-        - Candidate Name: {candidate_name}
+        FACTS (use ONLY these — do not invent anything):
+        - Candidate name: {candidate_name}
+        - Company: {company_name}
         - Role: {job_role_display}
-        - Company Name: {company_name}
-        - Interview Mode: Online
-        - Interview Link: {meeting_link}
-        - Available Time Slots: {time_slots}
-        - AI Summary (optional): {ai_summary}
+        - Stage: {"selected to move forward" if stage == "selected" else "shortlisted after profile review"}
+        - Candidate's relevant skills (from their resume): {', '.join(resume_skills) or 'not specified'}
+        - Note about their fit: {profile_line}
+        - Next steps: {next_steps}
 
-        Instructions:
-        1. Start with a polite greeting.
-        2. Inform the candidate that they have been shortlisted.
-        3. Mention the role they applied for.
-        4. Ask them to select a suitable time slot from the provided options.
-        5. Include interview details (mode, link, duration if available).
-        6. If AI summary is provided, include a short 1–2 line positive note about their profile.
-        7. Keep tone professional, concise, and friendly.
-        8. End with a clear call to action (confirm availability).
+        Rules:
+        - Greet the candidate by name.
+        - State clearly that they have been {"selected to move forward" if stage == "selected" else "shortlisted"} for the role.
+        - Include the one-line note about their fit.
+        - State the next steps exactly as given.
+        - DO NOT include any meeting link, video-call link, calendar link, or specific time slots.
+        - DO NOT ask them to pick a time or confirm availability.
+        - DO NOT invent any details, dates, or requirements.
+        - Keep it under 120 words, plain text, warm and professional.
+        - Sign off as "{company_name} Hiring Team".
 
-        Output format:
-        Return STRICTLY a JSON object. No extra text.
-        {{
-            "subject": "The generated email subject",
-            "body": "The full generated email body"
-        }}
+        Return STRICT JSON: {{"subject": "...", "body": "..."}}
         """
+
+        fallback_body = (
+            f"Hi {candidate_name},\n\n"
+            f"{opening}\n\n"
+            f"{profile_line}\n\n"
+            f"{next_steps}\n\n"
+            "Best regards,\n"
+            f"{company_name} Hiring Team"
+        )
 
         try:
             import requests
             import json
             headers = {
                 "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
             payload = {
                 "model": settings.OPENROUTER_MODEL,
                 "messages": [
-                    {"role": "system", "content": "You are a recruitment assistant. Return only valid JSON."},
-                    {"role": "user", "content": prompt}
+                    {"role": "system", "content": "You are a recruitment assistant. Return only valid JSON. Never invent links, dates or time slots."},
+                    {"role": "user", "content": prompt},
                 ],
-                "response_format": {"type": "json_object"}
+                "response_format": {"type": "json_object"},
             }
-            response = requests.post(
-                settings.OPENROUTER_API_URL,
-                headers=headers,
-                json=payload,
-                timeout=30
-            )
+            response = requests.post(settings.OPENROUTER_API_URL, headers=headers, json=payload, timeout=30)
             response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-            result = json.loads(content)
-            return result.get("subject", "Interview Invitation"), result.get("body", "")
-        except Exception as e:
-            # Fallback
-            subject = f"Interview Invitation from {company_name}"
-            body = (
-                f"Hi {candidate_name},\n\n"
-                f"Thank you for applying. You have been shortlisted for {job_role_display} at {company_name}.\n"
-                f"Our team will contact you shortly with the next steps.\n\n"
-                "Best regards,\n"
-                f"{company_name} Hiring Team"
-            )
-            return subject, body
+            result = json.loads(response.json()["choices"][0]["message"]["content"])
+            body = str(result.get("body") or "").strip()
+            # Guard: if the model still slipped in a link or a time slot, use the safe fallback.
+            lowered = body.lower()
+            import re as _re
+            slot_like = bool(_re.search(r"\d{1,2}(:\d{2})?\s?(am|pm)\b", lowered)) or "time slot" in lowered
+            if not body or "http" in lowered or "meet.google" in lowered or "calendly" in lowered or slot_like:
+                logger.warning("Shortlist email model output contained a link/time slot; using safe fallback.")
+                return subject, fallback_body
+            return str(result.get("subject") or subject), body
+        except Exception as exc:
+            logger.warning(f"build_shortlist_email LLM failed, using fallback: {exc}")
+            return subject, fallback_body
 
     @staticmethod
     def build_interview_invite_email(
@@ -145,15 +169,15 @@ class EmailService:
 
     @staticmethod
     def send_selection_email(candidate: dict, company_name: str) -> dict:
-        """Explicitly send the existing shortlist/selection email to a SINGLE
-        candidate. Reuses `build_shortlist_email`. Only ever called from an
+        """Explicitly send the progress email to a SINGLE candidate at the
+        'selected' stage. Reuses `build_shortlist_email`. Only ever called from an
         explicit recruiter 'Select' action — never from any interview lifecycle."""
         email = (candidate.get("email") or "").strip()
         name = candidate.get("name") or "Candidate"
         if not email or "@" not in email:
             return {"sent": 0, "skipped": 1, "failed": 0, "errors": [f"{name}: no valid email"]}
         try:
-            subject, body = EmailService.build_shortlist_email(candidate, company_name)
+            subject, body = EmailService.build_shortlist_email(candidate, company_name, stage="selected")
             EmailService.send_email(email, subject, body)
             return {"sent": 1, "skipped": 0, "failed": 0, "errors": []}
         except Exception as exc:
