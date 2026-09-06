@@ -46,8 +46,12 @@ export default function CampaignsPage() {
   }, []);
 
   const handleCallAll = async () => {
-    if (!confirm('Are you sure you want to initiate AI calls to shortlisted candidates for the selected jobs?')) return;
-    
+    if (selectedJobs.length === 0) {
+      alert('Select at least one job posting before starting calls.');
+      return;
+    }
+    if (!confirm('Are you sure you want to initiate AI calls to shortlisted candidates for the selected job(s)?')) return;
+
     setActionLoading(true);
     try {
       const res = await fetchApi('/bolna/call-shortlisted', { 
@@ -192,15 +196,21 @@ export default function CampaignsPage() {
             {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <Trash2 size={16} className="mr-2" />} 
             Delete Selected ({selectedForDeletion.length})
           </button>
-          <button 
-            onClick={handleCallAll} 
-            disabled={actionLoading || pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length === 0} 
+          <button
+            onClick={handleCallAll}
+            disabled={actionLoading || selectedJobs.length === 0 || pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length === 0}
+            title={selectedJobs.length === 0 ? 'Select at least one job posting first' : undefined}
             className="flex h-11 items-center justify-center rounded-xl border-2 border-primary bg-primary px-4 text-sm font-extrabold text-primary-foreground shadow-lg hover:opacity-90 disabled:opacity-75 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <PlayCircle size={16} className="mr-2" />} 
+            {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <PlayCircle size={16} className="mr-2" />}
             Call All Shortlisted ({pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length})
           </button>
         </div>
+        {selectedJobs.length === 0 && (
+          <p className="text-xs text-muted-foreground">
+            Select one or more job postings above to enable “Call All Shortlisted”.
+          </p>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
