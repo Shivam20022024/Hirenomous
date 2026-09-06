@@ -117,9 +117,13 @@ export default function InterviewReportPage() {
         method: 'POST',
         body: JSON.stringify({ decision }),
       });
-      if (decision === 'select') {
-        const em = res?.selection_email;
-        alert(em?.sent ? 'Candidate selected — selection email sent.' : `Candidate selected. Selection email not sent (${em?.errors?.[0] || 'SMTP not configured'}).`);
+      if (decision === 'select' || decision === 'reject') {
+        const em = res?.decision_email ?? res?.selection_email;
+        const what = decision === 'select' ? 'selected' : 'rejected';
+        const mail = decision === 'select' ? 'selection email' : 'rejection email';
+        alert(em?.sent
+          ? `Candidate ${what} — ${mail} sent.`
+          : `Candidate ${what}. ${mail[0].toUpperCase() + mail.slice(1)} not sent (${em?.errors?.[0] || 'SMTP not configured'}).`);
       }
       await load();
     } catch (err: any) {

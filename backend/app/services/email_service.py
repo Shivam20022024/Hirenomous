@@ -184,6 +184,47 @@ class EmailService:
             return {"sent": 0, "skipped": 0, "failed": 1, "errors": [f"{name} <{email}>: {exc}"]}
 
     @staticmethod
+    def build_rejection_email(candidate: dict, company_name: str) -> tuple[str, str]:
+        """Post-interview regret email. Fixed, professional template — no LLM,
+        no specific reasons disclosed (standard hiring practice)."""
+        candidate_name = candidate.get("name") or "Candidate"
+        job_role = candidate.get("job_title_for_email") or candidate.get("role")
+        if not job_role or job_role in ("Not Assessed", "Manual Entry", "Unassigned"):
+            role_display = "the position"
+            subject = f"Update on your application at {company_name}"
+        else:
+            role_display = f"the {job_role} position"
+            subject = f"Update on your application - {job_role} at {company_name}"
+        body = (
+            f"Hi {candidate_name},\n\n"
+            f"Thank you for taking the time to interview for {role_display} at {company_name}, "
+            "and for your interest in joining our team.\n\n"
+            "After careful consideration, we have decided not to move forward with your application "
+            "at this stage. This was a competitive process and the decision was not an easy one; it "
+            "does not take away from your skills and experience.\n\n"
+            "We'd be glad to consider you for future roles that match your background, and we wish you "
+            "the very best in your search.\n\n"
+            "Best regards,\n"
+            f"{company_name} Hiring Team"
+        )
+        return subject, body
+
+    @staticmethod
+    def send_rejection_email(candidate: dict, company_name: str) -> dict:
+        """Send the post-interview rejection email to a SINGLE candidate. Only ever
+        called from an explicit recruiter 'Reject' action on a completed interview."""
+        email = (candidate.get("email") or "").strip()
+        name = candidate.get("name") or "Candidate"
+        if not email or "@" not in email:
+            return {"sent": 0, "skipped": 1, "failed": 0, "errors": [f"{name}: no valid email"]}
+        try:
+            subject, body = EmailService.build_rejection_email(candidate, company_name)
+            EmailService.send_email(email, subject, body)
+            return {"sent": 1, "skipped": 0, "failed": 0, "errors": []}
+        except Exception as exc:
+            return {"sent": 0, "skipped": 0, "failed": 1, "errors": [f"{name} <{email}>: {exc}"]}
+
+    @staticmethod
     def send_email(to_email: str, subject: str, body: str) -> None:
         if not EmailService.is_configured():
             raise RuntimeError(

@@ -565,10 +565,18 @@ class InterviewService:
                 {"$set": {"status": "rejected", "recruiter_verdict": feedback or "Rejected by recruiter",
                           "last_interaction": now}},
             )
+            # An explicit recruiter Reject sends the post-interview regret email.
+            company_name = settings.APP_NAME
+            cand_for_email = dict(candidate or {})
+            if interview.get("job_id"):
+                job = await db.jobs_board.find_one({"id": interview["job_id"]}, {"_id": 0, "title": 1})
+                if job and job.get("title"):
+                    cand_for_email["job_title_for_email"] = job["title"]
+            email_result = await run_in_threadpool(EmailService.send_rejection_email, cand_for_email, company_name)
             await AuditService.record(
                 organization_id=org_id, event_type="recruiter_rejected", actor_type="recruiter",
                 actor_id=recruiter_id, candidate_id=interview["candidate_id"], job_id=interview.get("job_id"),
-                interview_id=interview_id, payload={"feedback": feedback},
+                interview_id=interview_id, payload={"feedback": feedback, "rejection_email": email_result},
             )
         else:  # needs_review — no candidate status change
             await AuditService.record(
@@ -577,7 +585,13 @@ class InterviewService:
                 interview_id=interview_id, payload={"feedback": feedback},
             )
 
-        return {"status": "success", "decision": decision, "selection_email": email_result}
+        # `decision_email` is the canonical key; `selection_email` kept for older clients.
+        return {
+            "status": "success",
+            "decision": decision,
+            "decision_email": email_result,
+            "selection_email": email_result if decision == "select" else None,
+        }
 
     # ------------------------------------------------------------------
     # Candidate session

@@ -98,9 +98,13 @@ export default function InterviewsPage() {
         method: 'POST',
         body: JSON.stringify({ decision }),
       });
-      if (decision === 'select') {
-        const em = res?.selection_email;
-        alert(em?.sent ? 'Candidate selected. Selection email sent.' : `Candidate selected. Selection email not sent: ${em?.errors?.[0] || 'no email configured'}`);
+      {
+        const em = res?.decision_email ?? res?.selection_email;
+        const what = decision === 'select' ? 'selected' : 'rejected';
+        const mail = decision === 'select' ? 'Selection email' : 'Rejection email';
+        alert(em?.sent
+          ? `Candidate ${what}. ${mail} sent.`
+          : `Candidate ${what}. ${mail} not sent: ${em?.errors?.[0] || 'no email configured'}`);
       }
       load();
     } catch (err: any) {
