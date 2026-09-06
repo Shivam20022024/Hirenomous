@@ -57,10 +57,11 @@ export default function CandidatesPage() {
   const jobName = jobId ? (jobs.find(j => j.id === jobId)?.title || 'the selected job') : null;
 
   const handleSendEmail = async () => {
-    const scope = jobName
-      ? `the ${interestedCount} interested candidate(s) for "${jobName}"`
-      : `ALL interested candidates across EVERY job (${interestedCount} shown)`;
-    if (!confirm(`Send the "shortlisted" notification email to ${scope}?\n\nThis email has no interview link.`)) return;
+    if (!jobId) { alert('Select a specific job before sending emails.'); return; }
+    if (!confirm(
+      `Send the "shortlisted" notification email to the ${interestedCount} interested candidate(s) for "${jobName}"?\n\n` +
+      `This email has no interview link.`
+    )) return;
     setActionLoading(true);
     try {
       const res = await fetchApi(`/email/send-shortlisted${jobId ? `?job_id=${jobId}` : ''}`, { method: 'POST' });
@@ -74,13 +75,10 @@ export default function CandidatesPage() {
   };
 
   const handleBulkInvite = async () => {
-    const scope = jobName
-      ? `the ${interestedCount} interested candidate(s) for "${jobName}"`
-      : `ALL interested candidates across EVERY job (${interestedCount} shown)`;
+    if (!jobId) { alert('Select a specific job before inviting candidates to an AI Interview.'); return; }
     if (!confirm(
-      `Invite ${scope} to an AI video interview?\n\n` +
-      `This creates an interview and emails a secure interview link to each. It does NOT select anyone.` +
-      (jobName ? '' : "\n\nTip: pick a job in the filter above to invite only that job's candidates.")
+      `Invite the ${interestedCount} interested candidate(s) for "${jobName}" to an AI video interview?\n\n` +
+      `This creates an interview and emails a secure interview link to each. It does NOT select anyone.`
     )) return;
     setActionLoading(true);
     try {
@@ -237,10 +235,20 @@ export default function CandidatesPage() {
             <option value="REJECTED">Rejected</option>
             <option value="HIRED">Hired</option>
           </select>
-          <button onClick={handleBulkInvite} disabled={actionLoading} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/5 px-4 text-sm font-bold text-primary shadow-sm hover:bg-primary/10 disabled:opacity-50">
+          <button
+            onClick={handleBulkInvite}
+            disabled={actionLoading || !jobId}
+            title={!jobId ? 'Select a specific job first' : undefined}
+            className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/5 px-4 text-sm font-bold text-primary shadow-sm hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <ClipboardCheck size={16} className="mr-2" />} Invite to AI Interview
           </button>
-          <button onClick={handleSendEmail} disabled={actionLoading} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-muted-foreground shadow-sm hover:bg-muted disabled:opacity-50">
+          <button
+            onClick={handleSendEmail}
+            disabled={actionLoading || !jobId}
+            title={!jobId ? 'Select a specific job first' : undefined}
+            className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-muted-foreground shadow-sm hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <Mail size={16} className="mr-2" />} Email Interested
           </button>
           <button onClick={handleExport} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90">
@@ -248,6 +256,12 @@ export default function CandidatesPage() {
           </button>
         </div>
       </div>
+
+      {!jobId && (
+        <p className="text-xs text-muted-foreground">
+          Select a specific job in the <span className="font-semibold">All Jobs</span> filter to enable “Invite to AI Interview” and “Email Interested” for that job’s candidates.
+        </p>
+      )}
 
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
