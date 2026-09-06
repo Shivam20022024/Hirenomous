@@ -141,7 +141,7 @@ class EmailService:
         job_title: str,
         interview_url: str,
         expected_minutes: str = "20-30",
-        company_name: str = "Hireonomous",
+        company_name: str = settings.APP_NAME,
     ) -> tuple[str, str]:
         """Dedicated AI Interview invitation email. Independent of the
         shortlist / selection email — creating an interview must never send that."""
@@ -256,7 +256,7 @@ We received a request to reset your password. Click the link below to set a new 
 If you did not request this, please ignore this email.
 
 Best regards,
-The Hireonomous Team
+The {settings.APP_NAME} Team
             """
             
             EmailService.send_email(recipient_email, subject, body)

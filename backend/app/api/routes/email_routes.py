@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from typing import Optional
 
+from app.core.config import settings
 from app.core.database import get_db
 from app.services.email_service import EmailService
 
@@ -23,9 +24,9 @@ async def send_shortlisted_emails(job_id: Optional[str] = None, org_id: str = De
 
     db = get_db()
 
-    # Fetch actual company name
-    org = await db.organizations.find_one({"id": org_id})
-    company_name = org.get("name") if org else "Our Company"
+    # Candidate-facing emails always sign off with the product name, not the
+    # tenant/org name — keeps every candidate touchpoint consistent.
+    company_name = settings.APP_NAME
 
     # "Email Interested" should only reach candidates who actually expressed interest
     # (post-screening status), scoped to the job currently selected in the UI —

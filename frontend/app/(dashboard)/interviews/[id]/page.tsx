@@ -3,8 +3,13 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Check, X, HelpCircle, FileText, RefreshCw, MessageSquare, Video, Play } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X, HelpCircle, FileText, RefreshCw, MessageSquare, Video, Play, TrendingUp, AlertTriangle } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
+
+const scoreColor = (v: number) =>
+  v >= 80 ? 'text-emerald-600' : v >= 60 ? 'text-blue-600' : v >= 40 ? 'text-amber-600' : 'text-red-600';
+const barColor = (v: number) =>
+  v >= 80 ? 'bg-emerald-500' : v >= 60 ? 'bg-blue-500' : v >= 40 ? 'bg-amber-500' : 'bg-red-500';
 
 const REC_LABEL: Record<string, string> = {
   strong_match: 'STRONG MATCH',
@@ -144,18 +149,22 @@ export default function InterviewReportPage() {
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-6 px-5 py-9 lg:px-8 lg:py-14">
-      <Link href="/interviews" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft size={15} /> Back to interviews
+      <Link href="/interviews" className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-primary">
+        <ArrowLeft size={16} /> Back to interviews
       </Link>
 
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">AI Interview Report</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-[-0.06em]">{report.candidate_name}</h1>
-          <p className="text-muted-foreground">{report.position}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">AI Interview Report</p>
+          <h1 className="mt-2 text-4xl font-bold tracking-tight text-foreground">{report.candidate_name}</h1>
+          <p className="mt-1.5 text-base font-semibold text-muted-foreground">{report.position}</p>
         </div>
-        <span className="inline-flex items-center rounded-full bg-muted px-3 py-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <span className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider ring-1 ${
+          report.status === 'completed'
+            ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+            : 'bg-muted text-muted-foreground ring-border'
+        }`}>
           {String(report.status).replace('_', ' ')}
         </span>
       </div>
@@ -181,35 +190,38 @@ export default function InterviewReportPage() {
         <>
           {/* Overall + recommendation */}
           <div className="grid gap-4 sm:grid-cols-[1fr_1.4fr]">
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Overall Score</p>
-              <p className="mt-3 text-4xl font-bold tracking-tight">
+            <div className="rounded-2xl border border-border bg-card p-7">
+              <p className="text-sm font-bold uppercase tracking-[0.14em] text-muted-foreground">Overall Score</p>
+              <p className={`mt-3 text-6xl font-black tracking-tight ${overall != null ? scoreColor(overall) : 'text-foreground'}`}>
                 {overall != null ? Math.round(overall) : '—'}
-                <span className="text-lg text-muted-foreground"> / 100</span>
+                <span className="text-2xl font-semibold text-muted-foreground"> / 100</span>
               </p>
               {rec && (
-                <span className={`mt-4 inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-bold uppercase tracking-wider ${REC_STYLE[rec] || 'bg-muted'}`}>
+                <span className={`mt-5 inline-flex items-center rounded-lg border px-3.5 py-2 text-sm font-bold uppercase tracking-wider ${REC_STYLE[rec] || 'bg-muted'}`}>
                   AI Recommendation: {REC_LABEL[rec] || rec}
                 </span>
               )}
-              <p className="mt-3 text-[11px] text-muted-foreground">
+              <p className="mt-4 text-xs font-medium text-muted-foreground">
                 Advisory only. The recruiter makes the final decision.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">Breakdown</p>
-              <div className="space-y-3">
+            <div className="rounded-2xl border border-border bg-card p-7">
+              <p className="mb-5 text-sm font-bold uppercase tracking-[0.14em] text-muted-foreground">Breakdown</p>
+              <div className="space-y-4">
                 {DIMENSIONS.map(([key, label]) => {
                   const v = scores[key];
                   return (
                     <div key={key}>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className="font-semibold">{v != null ? `${Math.round(v)}/100` : '—'}</span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-foreground">{label}</span>
+                        <span className={`text-base font-bold ${v != null ? scoreColor(v) : 'text-muted-foreground'}`}>
+                          {v != null ? Math.round(v) : '—'}
+                          <span className="text-xs font-medium text-muted-foreground">/100</span>
+                        </span>
                       </div>
-                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                        <div className="h-full rounded-full bg-primary" style={{ width: `${Math.min(100, v || 0)}%` }} />
+                      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
+                        <div className={`h-full rounded-full ${barColor(v || 0)}`} style={{ width: `${Math.min(100, v || 0)}%` }} />
                       </div>
                     </div>
                   );
@@ -221,11 +233,13 @@ export default function InterviewReportPage() {
           {/* Strengths / areas */}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl border border-border bg-card p-6">
-              <h3 className="mb-3 text-sm font-bold text-foreground">Strengths</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-emerald-700">
+                <TrendingUp size={17} /> Strengths
+              </h3>
+              <ul className="space-y-2.5 text-sm font-medium text-foreground/80">
                 {(aiReport.strengths || []).length ? (
                   aiReport.strengths.map((s: string, i: number) => (
-                    <li key={i} className="flex gap-2">
+                    <li key={i} className="flex gap-2.5">
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                       {s}
                     </li>
@@ -236,11 +250,13 @@ export default function InterviewReportPage() {
               </ul>
             </div>
             <div className="rounded-2xl border border-border bg-card p-6">
-              <h3 className="mb-3 text-sm font-bold text-foreground">Areas to Improve</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+              <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-orange-700">
+                <AlertTriangle size={17} /> Areas to Improve
+              </h3>
+              <ul className="space-y-2.5 text-sm font-medium text-foreground/80">
                 {(aiReport.areas_to_improve || []).length ? (
                   aiReport.areas_to_improve.map((s: string, i: number) => (
-                    <li key={i} className="flex gap-2">
+                    <li key={i} className="flex gap-2.5">
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />
                       {s}
                     </li>
@@ -254,8 +270,12 @@ export default function InterviewReportPage() {
 
           {aiReport.summary && (
             <div className="rounded-2xl border border-border bg-card p-6">
-              <h3 className="mb-2 text-sm font-bold text-foreground">Summary</h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">{aiReport.summary}</p>
+              <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-foreground">
+                <FileText size={17} /> Summary
+              </h3>
+              <p className="border-l-4 border-primary/40 pl-4 text-[15px] font-medium leading-relaxed text-foreground/90">
+                {aiReport.summary}
+              </p>
             </div>
           )}
 
@@ -263,8 +283,8 @@ export default function InterviewReportPage() {
           {report.status === 'completed'
             && (detail?.answers?.length ?? 0) > 0
             && !detail.answers.some((a: any) => a.has_video || a.has_audio) && (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-4 text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">Answer recordings:</span> none are available for this interview
+            <div className="rounded-2xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">
+              <span className="font-bold text-foreground">Answer recordings:</span> none are available for this interview
               (the candidate answered by text, or the video files are no longer stored). The full transcript is still available.
             </div>
           )}
@@ -272,8 +292,8 @@ export default function InterviewReportPage() {
           {/* Answer recordings (recruiter-only, streamed through the authenticated endpoint) */}
           {detail?.answers?.some((a: any) => a.has_video || a.has_audio) && (
             <div className="rounded-2xl border border-border bg-card p-6">
-              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-foreground">
-                <Video size={15} /> Answer Recordings
+              <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-foreground">
+                <Video size={17} /> Answer Recordings
               </h3>
               <div className="space-y-2">
                 {detail.answers.map((a: any) => {
@@ -281,8 +301,8 @@ export default function InterviewReportPage() {
                   const q = (detail.question_plan || []).find((x: any) => x.id === a.question_id);
                   const title = q?.text || `Answer ${a.answer_index + 1}`;
                   return (
-                    <div key={a.answer_index} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
-                      <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                    <div key={a.answer_index} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background p-3.5">
+                      <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground/80">
                         {q?.is_followup ? 'Follow-up: ' : ''}{title}
                       </p>
                       <button
@@ -297,29 +317,29 @@ export default function InterviewReportPage() {
                   );
                 })}
               </div>
-              <p className="mt-3 text-[11px] text-muted-foreground">
+              <p className="mt-4 text-xs font-medium text-muted-foreground">
                 Recordings are for interview review only. AI scoring is based solely on the answer transcript — never on appearance.
               </p>
             </div>
           )}
 
           {/* Interview meta */}
-          <div className="flex flex-wrap gap-6 rounded-2xl border border-border bg-card p-6 text-sm">
+          <div className="flex flex-wrap items-center gap-10 rounded-2xl border border-border bg-card p-6">
             <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Questions</p>
-              <p className="mt-1 font-semibold">{report.questions_total}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Questions</p>
+              <p className="mt-1.5 text-2xl font-bold text-foreground">{report.questions_total}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Answered</p>
-              <p className="mt-1 font-semibold">{report.questions_answered}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Answered</p>
+              <p className="mt-1.5 text-2xl font-bold text-foreground">{report.questions_answered}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Duration</p>
-              <p className="mt-1 font-semibold">{report.duration_minutes != null ? `${report.duration_minutes} min` : '—'}</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duration</p>
+              <p className="mt-1.5 text-2xl font-bold text-foreground">{report.duration_minutes != null ? `${report.duration_minutes} min` : '—'}</p>
             </div>
             {report.evaluation_status === 'needs_review' && (
-              <div className="flex items-center gap-1.5 text-xs font-medium text-orange-600">
-                <HelpCircle size={13} /> Flagged for human review (limited interview data)
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-orange-600">
+                <HelpCircle size={15} /> Flagged for human review (limited interview data)
               </div>
             )}
           </div>
@@ -328,13 +348,13 @@ export default function InterviewReportPage() {
           <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-6">
             <button
               onClick={openTranscript}
-              className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-semibold hover:bg-muted"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-5 text-sm font-bold hover:bg-muted"
             >
-              <MessageSquare size={15} /> View Transcript
+              <MessageSquare size={16} /> View Transcript
             </button>
 
             {decided ? (
-              <span className="inline-flex items-center gap-2 rounded-xl bg-muted px-4 py-2 text-sm font-semibold text-muted-foreground">
+              <span className="inline-flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-sm font-bold text-muted-foreground">
                 Recruiter decision: <span className="uppercase text-foreground">{decided}</span>
                 {report.recruiter_feedback ? ` — “${report.recruiter_feedback}”` : ''}
               </span>
@@ -343,28 +363,28 @@ export default function InterviewReportPage() {
                 <button
                   onClick={() => decide('select')}
                   disabled={busy}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
                 >
-                  <Check size={15} /> Select Candidate
+                  <Check size={16} /> Select Candidate
                 </button>
                 <button
                   onClick={() => decide('reject')}
                   disabled={busy}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-4 text-sm font-semibold text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-5 text-sm font-bold text-destructive hover:bg-destructive/20 disabled:opacity-50"
                 >
-                  <X size={15} /> Reject Candidate
+                  <X size={16} /> Reject Candidate
                 </button>
                 <button
                   onClick={() => decide('needs_review')}
                   disabled={busy}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-4 text-sm font-semibold hover:bg-muted disabled:opacity-50"
+                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-5 text-sm font-bold hover:bg-muted disabled:opacity-50"
                 >
-                  <HelpCircle size={15} /> Needs Review
+                  <HelpCircle size={16} /> Needs Review
                 </button>
               </>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="text-xs font-medium text-muted-foreground">
             Selecting a candidate updates their status and sends the standard selection email. Inviting or
             completing an interview never does this.
           </p>
@@ -413,13 +433,13 @@ export default function InterviewReportPage() {
                 transcript.map((t, i) => (
                   <div key={i} className={`flex ${t.role === 'candidate' ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
+                      className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
                         t.role === 'candidate'
                           ? 'bg-primary text-primary-foreground rounded-tr-sm'
                           : 'border border-border bg-muted text-foreground rounded-tl-sm'
                       }`}
                     >
-                      <p className="mb-0.5 text-[10px] font-bold uppercase tracking-wider opacity-70">
+                      <p className="mb-1 text-[11px] font-bold uppercase tracking-wider opacity-70">
                         {t.role === 'candidate' ? report.candidate_name : 'AI Interviewer'}
                       </p>
                       {t.text}

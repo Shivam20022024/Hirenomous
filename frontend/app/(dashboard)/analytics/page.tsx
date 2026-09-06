@@ -103,13 +103,13 @@ export default function AnalyticsPage() {
             </thead>
             <tbody className="divide-y divide-border">
               {reportData.length > 0 ? reportData.map((row, i) => (
-                <tr key={i} className="hover:bg-muted/30">
-                  <td className="px-6 py-4 font-medium">{row.date}</td>
+                <tr key={i} className="hover:bg-muted/30 font-semibold text-foreground">
+                  <td className="px-6 py-4">{row.date}</td>
                   <td className="px-6 py-4">{row.candidates}</td>
                   <td className="px-6 py-4">{row.screened}</td>
                   <td className="px-6 py-4">{row.calls}</td>
-                  <td className="px-6 py-4 text-primary font-medium">{row.interested}</td>
-                  <td className="px-6 py-4 text-emerald-600 font-medium">{row.hired}</td>
+                  <td className="px-6 py-4 text-primary">{row.interested}</td>
+                  <td className="px-6 py-4 text-emerald-600">{row.hired}</td>
                 </tr>
               )) : (
                 <tr>

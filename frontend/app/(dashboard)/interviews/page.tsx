@@ -145,7 +145,7 @@ export default function InterviewsPage() {
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-border bg-muted/50 text-xs font-semibold text-muted-foreground">
+            <thead className="border-b-2 border-primary/30 bg-primary/10 text-xs font-bold uppercase tracking-wider text-primary">
               <tr>
                 <th className="px-6 py-4">Candidate</th>
                 <th className="px-6 py-4">Position</th>

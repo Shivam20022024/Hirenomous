@@ -228,6 +228,9 @@ class InterviewService:
         job_title = (job or {}).get("title") or candidate.get("role") or "the position"
         interview_url = f"{settings.INTERVIEW_PUBLIC_BASE_URL.rstrip('/')}/interview/{token}"
 
+        # Every candidate-facing surface signs off with the product name.
+        company_name = settings.APP_NAME
+
         email = (candidate.get("email") or "").strip()
         result = {"sent": False, "reason": None}
         if not email or "@" not in email:
@@ -236,7 +239,9 @@ class InterviewService:
             result["reason"] = "SMTP is not configured on the server."
         else:
             try:
-                subject, body = EmailService.build_interview_invite_email(candidate, job_title, interview_url)
+                subject, body = EmailService.build_interview_invite_email(
+                    candidate, job_title, interview_url, company_name=company_name
+                )
                 await run_in_threadpool(EmailService.send_email, email, subject, body)
                 result["sent"] = True
             except Exception as exc:
@@ -540,8 +545,7 @@ class InterviewService:
                           "last_interaction": now}},
             )
             # ONLY an explicit recruiter Select triggers the existing selection email.
-            org = await db.organizations.find_one({"id": org_id})
-            company_name = (org or {}).get("name") or "Our Company"
+            company_name = settings.APP_NAME
             cand_for_email = dict(candidate or {})
             if interview.get("job_id"):
                 job = await db.jobs_board.find_one({"id": interview["job_id"]}, {"_id": 0, "title": 1, "skills": 1})

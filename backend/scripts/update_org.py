@@ -14,7 +14,7 @@ async def main():
     org_id = '16612688-3635-4101-a28f-3209733a2249'
     result = await db.organizations.update_one(
         {"id": org_id},
-        {"$set": {"name": "Novalantis"}}
+        {"$set": {"name": "Hireonomous"}}
     )
     
     print(f"Matched: {result.matched_count}, Modified: {result.modified_count}")

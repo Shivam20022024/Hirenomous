@@ -84,7 +84,7 @@ class PromptEngine:
         ]
 
     @staticmethod
-    def generate_prompt(job: dict, config: dict, candidate_name: str = "the candidate", company_name: str = "Hireonomous") -> str:
+    def generate_prompt(job: dict, config: dict, candidate_name: str = "the candidate", company_name: str = settings.APP_NAME) -> str:
         """Generates the final system prompt by combining templates and context."""
         
         q_list = config.get("screening_questions", [])

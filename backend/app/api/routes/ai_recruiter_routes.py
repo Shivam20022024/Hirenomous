@@ -112,7 +112,7 @@ async def preview_ai_prompt(job_id: str, org_id: str = Depends(get_context_organ
     if not config:
         config = JobAIConfig(job_id=job_id, organization_id=org_id).model_dump()
         
-    prompt = PromptEngine.generate_prompt(job, config, company_name="Your Company")
+    prompt = PromptEngine.generate_prompt(job, config, company_name=settings.APP_NAME)
     return {"prompt": prompt}
 
 class SimulateRequest(BaseModel):
@@ -129,7 +129,7 @@ async def simulate_ai_recruiter(job_id: str, req: SimulateRequest, org_id: str =
     if not config:
         config = JobAIConfig(job_id=job_id, organization_id=org_id).model_dump()
         
-    system_prompt = PromptEngine.generate_prompt(job, config, candidate_name="Candidate", company_name="Hireonomous")
+    system_prompt = PromptEngine.generate_prompt(job, config, candidate_name="Candidate", company_name=settings.APP_NAME)
     
     messages = [{"role": "system", "content": system_prompt}] + req.messages
     

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class BolnaService:
     @staticmethod
-    async def initiate_bolna_call(candidate_id: str, phone_number: str, candidate_name: str = "", job_title: str = "", company_name: str = "Hireonomous"):
+    async def initiate_bolna_call(candidate_id: str, phone_number: str, candidate_name: str = "", job_title: str = "", company_name: str = settings.APP_NAME):
         """
         Initiates an outbound call via Bolna.ai API with dynamic prompt generation.
         """
