@@ -110,6 +110,11 @@ class RecruiterDecisionRequest(BaseModel):
     feedback: Optional[str] = None
 
 
+class BulkInviteRequest(BaseModel):
+    job_id: Optional[str] = None               # scope to one job posting; None = all
+    question_count: Optional[int] = None
+
+
 # --- Request bodies (candidate session) ---
 
 class InterviewTurnRequest(BaseModel):

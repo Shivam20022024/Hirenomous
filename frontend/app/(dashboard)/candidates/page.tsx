@@ -68,6 +68,28 @@ export default function CandidatesPage() {
     }
   };
 
+  const handleBulkInvite = async () => {
+    const scope = jobId ? `${jobs.find(j => j.id === jobId)?.title || 'the selected job'}` : 'every job';
+    const n = candidates.filter(c => c.status?.toLowerCase() === 'interested').length;
+    if (!confirm(
+      `Invite the interested candidates for ${scope} to an AI video interview?\n\n` +
+      `This creates an interview and emails a secure interview link to each of them (${n} shown). It does NOT select anyone.`
+    )) return;
+    setActionLoading(true);
+    try {
+      const res = await fetchApi('/interviews/bulk-invite', {
+        method: 'POST',
+        body: JSON.stringify({ job_id: jobId || null }),
+      });
+      alert(res.message || 'Interview invitations processed.');
+      loadData();
+    } catch (err: any) {
+      alert(`Bulk invite failed: ${err.message}`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handleCallSingle = async (e: React.MouseEvent, candidateId: string) => {
     e.stopPropagation();
     setActionLoading(true);
@@ -208,7 +230,10 @@ export default function CandidatesPage() {
             <option value="REJECTED">Rejected</option>
             <option value="HIRED">Hired</option>
           </select>
-          <button onClick={handleSendEmail} disabled={actionLoading} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/5 px-4 text-sm font-bold text-primary shadow-sm hover:bg-primary/10 disabled:opacity-50">
+          <button onClick={handleBulkInvite} disabled={actionLoading} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/5 px-4 text-sm font-bold text-primary shadow-sm hover:bg-primary/10 disabled:opacity-50">
+            {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <ClipboardCheck size={16} className="mr-2" />} Invite to AI Interview
+          </button>
+          <button onClick={handleSendEmail} disabled={actionLoading} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-muted-foreground shadow-sm hover:bg-muted disabled:opacity-50">
             {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <Mail size={16} className="mr-2" />} Email Interested
           </button>
           <button onClick={handleExport} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90">

@@ -286,6 +286,76 @@ class InterviewService:
         interview_url = f"{settings.INTERVIEW_PUBLIC_BASE_URL.rstrip('/')}/interview/{token}"
         return {"invite": result, "interview_url": interview_url}
 
+    @staticmethod
+    async def bulk_invite(
+        *, org_id: str, recruiter_id: Optional[str], job_id: Optional[str] = None, question_count: Optional[int] = None
+    ) -> dict:
+        """Create an AI interview + send the invite email for every 'interested'
+        candidate (optionally scoped to one job). Each interview is candidate- and
+        job-specific (one LLM call for the question plan), so calls are processed
+        in small concurrent batches — same pattern as the resume Drive import."""
+        db = get_db()
+        query: Dict[str, Any] = {"organization_id": org_id, "status": "interested"}
+        if job_id:
+            query["job_id"] = job_id
+
+        candidates = await db.candidates.find(query, {"_id": 0, "id": 1, "name": 1}).to_list(length=1000)
+        if not candidates:
+            return {"total": 0, "created": 0, "already_active": 0, "failed": 0,
+                    "message": "No candidates at the 'interested' stage for this selection.", "results": []}
+
+        sem = asyncio.Semaphore(4)   # cap concurrent LLM + email work
+        results: List[Dict[str, Any]] = []
+
+        async def _one(cand: dict) -> None:
+            async with sem:
+                name = cand.get("name") or "Candidate"
+                try:
+                    r = await InterviewService.create_interview(
+                        org_id=org_id, recruiter_id=recruiter_id, candidate_id=cand["id"],
+                        job_id=job_id, question_count=question_count, send_invite=True,
+                    )
+                    if not r.get("created"):
+                        results.append({"candidate_id": cand["id"], "name": name, "status": "already_active"})
+                    else:
+                        sent = bool((r.get("invite") or {}).get("sent"))
+                        results.append({
+                            "candidate_id": cand["id"], "name": name,
+                            "status": "created", "email_sent": sent,
+                            "email_reason": (r.get("invite") or {}).get("reason"),
+                        })
+                except HTTPException as e:
+                    results.append({"candidate_id": cand["id"], "name": name, "status": "failed", "error": str(e.detail)})
+                except Exception as e:
+                    logger.error(f"bulk_invite failed for {cand['id']}: {e}")
+                    results.append({"candidate_id": cand["id"], "name": name, "status": "failed", "error": str(e)})
+
+        await asyncio.gather(*[_one(c) for c in candidates])
+
+        created = sum(1 for r in results if r["status"] == "created")
+        already = sum(1 for r in results if r["status"] == "already_active")
+        failed = sum(1 for r in results if r["status"] == "failed")
+        emailed = sum(1 for r in results if r.get("email_sent"))
+
+        await AuditService.record(
+            organization_id=org_id, event_type="interview_bulk_invited", actor_type="recruiter",
+            actor_id=recruiter_id, job_id=job_id,
+            payload={"total": len(candidates), "created": created, "already_active": already, "failed": failed},
+        )
+        return {
+            "total": len(candidates),
+            "created": created,
+            "already_active": already,
+            "failed": failed,
+            "emails_sent": emailed,
+            "message": (
+                f"Processed {len(candidates)} interested candidate(s): {created} invited"
+                f"{f' ({emailed} email(s) sent)' if created else ''}, "
+                f"{already} already had an active interview, {failed} failed."
+            ),
+            "results": results,
+        }
+
     # ------------------------------------------------------------------
     # Recruiter: read
     # ------------------------------------------------------------------

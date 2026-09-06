@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 
 from app.api.deps import get_context_organization_id, get_current_active_user
 from app.core.interview_auth import resolve_interview_by_token
-from app.models.interview import CreateInterviewRequest, RecruiterDecisionRequest
+from app.models.interview import CreateInterviewRequest, RecruiterDecisionRequest, BulkInviteRequest
 from app.models.user import UserInDB
 from app.services.interview_service import InterviewService
 
@@ -39,6 +39,18 @@ async def create_interview(
         interview_type=payload.interview_type,
         question_count=payload.question_count,
         send_invite=payload.send_invite,
+    )
+
+
+@recruiter_router.post("/bulk-invite")
+async def bulk_invite(
+    payload: BulkInviteRequest,
+    org_id: str = Depends(get_context_organization_id),
+    user: UserInDB = Depends(get_current_active_user),
+):
+    return await InterviewService.bulk_invite(
+        org_id=org_id, recruiter_id=user.id,
+        job_id=payload.job_id, question_count=payload.question_count,
     )
 
 
