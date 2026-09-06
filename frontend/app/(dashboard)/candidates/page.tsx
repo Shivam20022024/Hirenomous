@@ -117,13 +117,14 @@ export default function CandidatesPage() {
         method: 'POST',
         body: JSON.stringify({ candidate_id: candidate.candidate_id, job_id: candidate.job_id || null }),
       });
-      const sent = res?.invite?.sent;
       const iid = res?.interview?.id;
-      alert(
-        sent
-          ? 'AI interview created and invitation email sent.'
-          : `AI interview created. Invitation email not sent (${res?.invite?.reason || 'no email / SMTP not configured'}). Link: ${res?.interview_url || 'n/a'}`
-      );
+      if (res?.created === false) {
+        alert('This candidate already has an active AI interview — no new invite was sent.');
+      } else if (res?.invite?.sent) {
+        alert('AI interview created and invitation email sent.');
+      } else {
+        alert(`AI interview created. Invitation email not sent (${res?.invite?.reason || 'no email / SMTP not configured'}). Link: ${res?.interview_url || 'n/a'}`);
+      }
       await loadData();
       if (iid) router.push(`/interviews/${iid}`);
     } catch (err: any) {

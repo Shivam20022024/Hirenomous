@@ -30,7 +30,13 @@ async def send_shortlisted_emails(job_id: Optional[str] = None, org_id: str = De
     # "Email Interested" should only reach candidates who actually expressed interest
     # (post-screening status), scoped to the job currently selected in the UI —
     # not every resume-score-qualifying candidate across the whole organization.
-    query = {"status": "interested", "organization_id": org_id}
+    # `email_sent != True` makes the action idempotent: clicking it again does NOT
+    # re-send to candidates who already received this email.
+    query = {
+        "status": "interested",
+        "organization_id": org_id,
+        "email_sent": {"$ne": True},
+    }
     if job_id:
         query["job_id"] = job_id
 
@@ -38,13 +44,17 @@ async def send_shortlisted_emails(job_id: Optional[str] = None, org_id: str = De
     candidates = await cursor.to_list(length=500)
 
     if not candidates:
+        already = await db.candidates.count_documents({
+            "status": "interested", "organization_id": org_id, "email_sent": True,
+            **({"job_id": job_id} if job_id else {}),
+        })
         return {
             "status": "success",
-            "message": "No interested candidates found for this selection.",
-            "sent": 0,
-            "skipped": 0,
-            "failed": 0,
-            "errors": [],
+            "message": (
+                f"No new interested candidates to email — {already} already received this email."
+                if already else "No interested candidates found for this selection."
+            ),
+            "sent": 0, "skipped": already, "failed": 0, "errors": [],
         }
 
     # Resolve each candidate's actual job title from jobs_board (via job_id) so the
@@ -68,7 +78,7 @@ async def send_shortlisted_emails(job_id: Optional[str] = None, org_id: str = De
     # freeze the single asyncio event loop for every other request on the server.
     result = await run_in_threadpool(EmailService.send_bulk_shortlist_emails, candidates, company_name)
 
-    # Update email_sent flag in DB for successful candidates
+    # Mark emailed candidates so a second click does not re-send to them.
     if result.get("sent_ids"):
         await db.candidates.update_many(
             {"id": {"$in": result["sent_ids"]}},
@@ -78,8 +88,9 @@ async def send_shortlisted_emails(job_id: Optional[str] = None, org_id: str = De
     return {
         "status": "success",
         "message": (
-            f"Email processing finished. Sent: {result['sent']}, "
-            f"Skipped: {result['skipped']}, Failed: {result['failed']}."
+            f"Email sent to {result['sent']} candidate(s) who hadn't been emailed yet. "
+            f"Skipped (no valid email): {result['skipped']}. Failed: {result['failed']}. "
+            f"Candidates who already received this email are not re-sent to."
         ),
         **result,
     }
