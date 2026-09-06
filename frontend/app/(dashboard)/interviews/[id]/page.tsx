@@ -259,6 +259,16 @@ export default function InterviewReportPage() {
             </div>
           )}
 
+          {/* No recordings on disk (never captured, or purged) — tell the recruiter */}
+          {report.status === 'completed'
+            && (detail?.answers?.length ?? 0) > 0
+            && !detail.answers.some((a: any) => a.has_video || a.has_audio) && (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-4 text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">Answer recordings:</span> none are available for this interview
+              (the candidate answered by text, or the video files are no longer stored). The full transcript is still available.
+            </div>
+          )}
+
           {/* Answer recordings (recruiter-only, streamed through the authenticated endpoint) */}
           {detail?.answers?.some((a: any) => a.has_video || a.has_audio) && (
             <div className="rounded-2xl border border-border bg-card p-6">

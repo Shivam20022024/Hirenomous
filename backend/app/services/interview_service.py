@@ -65,6 +65,8 @@ def _serialize(doc: dict) -> dict:
             out[key] = _iso(out[key])
     # Redact raw storage paths from answers; expose only booleans + the answer index
     # so a recruiter can stream a recording through the authenticated endpoint.
+    # has_video/has_audio reflect whether the file ACTUALLY exists on the media
+    # store (a ref alone isn't enough — the file may have been purged).
     redacted = []
     for i, ans in enumerate(out.get("answers", []) or []):
         if not isinstance(ans, dict):
@@ -72,8 +74,8 @@ def _serialize(doc: dict) -> dict:
             continue
         a = {k: v for k, v in ans.items() if k not in ("audio_ref", "video_ref")}
         a["answer_index"] = i
-        a["has_video"] = bool(ans.get("video_ref"))
-        a["has_audio"] = bool(ans.get("audio_ref"))
+        a["has_video"] = InterviewStorage.exists(ans.get("video_ref"))
+        a["has_audio"] = InterviewStorage.exists(ans.get("audio_ref"))
         if "answered_at" in a:
             a["answered_at"] = _iso(a["answered_at"])
         redacted.append(a)
