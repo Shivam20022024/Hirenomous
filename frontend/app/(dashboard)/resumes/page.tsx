@@ -217,7 +217,7 @@ export default function ResumesPage() {
 
       <div className="relative">
         {error && <div className="mb-6 rounded-xl bg-destructive/10 p-4 text-sm font-medium text-destructive flex items-start gap-3"><X size={16} className="mt-0.5 shrink-0"/>{error}</div>}
-        {success && <div className="mb-6 rounded-xl bg-emerald-500/10 p-4 text-sm font-medium text-emerald-700 flex items-start gap-3"><Check size={16} className="mt-0.5 shrink-0"/>{success}</div>}
+        {success && <div className="mb-6 rounded-xl bg-success/10 p-4 text-sm font-medium text-success flex items-start gap-3"><Check size={16} className="mt-0.5 shrink-0"/>{success}</div>}
 
         {activeTab === 'upload' ? (
           <form onSubmit={handleUploadSubmit} className="space-y-6">
@@ -459,7 +459,7 @@ export default function ResumesPage() {
             <button
               type="submit"
               disabled={loading || (files.length === 0 && driveLinks.length === 0)}
-              className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-[#7a49fb] px-8 text-lg font-bold text-white shadow-[0_8px_16px_-6px_rgba(109,40,217,0.4)] transition-all hover:scale-[1.01] active:scale-[0.99] disabled:pointer-events-none disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 tracking-wide"
+              className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-8 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:pointer-events-none disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 tracking-wide"
             >
               {loading ? (
                 <><Loader2 className="h-5 w-5 animate-spin" /> Processing Resumes...</>

@@ -3,6 +3,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { Phone, Users, CheckCircle, Clock, PlayCircle, Loader2, RefreshCw, Trash2, ChevronDown } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
+import { PageHeader } from '@/components/page-header';
+import { StatTile } from '@/components/stat-tile';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 export default function CampaignsPage() {
   const [candidates, setCandidates] = useState<any[]>([]);
@@ -54,11 +66,11 @@ export default function CampaignsPage() {
 
     setActionLoading(true);
     try {
-      const res = await fetchApi('/bolna/call-shortlisted', { 
+      const res = await fetchApi('/bolna/call-shortlisted', {
         method: 'POST',
-        body: JSON.stringify(selectedJobs.length > 0 ? { job_ids: selectedJobs } : {}) 
+        body: JSON.stringify(selectedJobs.length > 0 ? { job_ids: selectedJobs } : {})
       });
-      
+
       let reportMessage = `Total calls queued: ${res.called_count}\n`;
       if (res.results && res.results.length > 0) {
         reportMessage += `\nResults by Job:\n`;
@@ -126,7 +138,7 @@ export default function CampaignsPage() {
     if (!confirm(`Are you sure you want to delete ${selectedForDeletion.length} selected candidates?`)) return;
     setActionLoading(true);
     try {
-      await fetchApi(`/candidates/bulk`, { 
+      await fetchApi(`/candidates/bulk`, {
         method: 'DELETE',
         body: JSON.stringify({ candidate_ids: selectedForDeletion })
       });
@@ -144,67 +156,70 @@ export default function CampaignsPage() {
   return (
     <div className="mx-auto max-w-[1240px] space-y-6 px-5 py-9 lg:px-8 lg:py-14">
       <div className="flex flex-col gap-5">
-        <div>
-          <h1 className="text-3xl font-bold tracking-[-0.06em] mb-2">Calling Campaigns</h1>
-          <p className="text-sm text-muted-foreground">Manage and track automated AI screening calls.</p>
-        </div>
+        <PageHeader
+          eyebrow="Outreach"
+          title="Calling Campaigns"
+          description="Manage and track automated AI screening calls."
+        />
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center justify-between h-11 rounded-xl border-2 border-blue-300 bg-blue-50 px-4 text-sm font-black text-blue-700 min-w-[200px]"
+              className="flex items-center justify-between h-11 rounded-lg border border-border bg-card px-4 text-sm font-semibold text-foreground min-w-[200px]"
             >
               <span>{selectedJobs.length === 0 ? 'All Postings' : `${selectedJobs.length} Job${selectedJobs.length > 1 ? 's' : ''} Selected`}</span>
-              <ChevronDown size={16} className="ml-2" />
+              <ChevronDown size={16} className="ml-2 text-muted-foreground" />
             </button>
 
             {isDropdownOpen && (
-              <div className="absolute top-12 left-0 z-50 w-64 rounded-xl border-2 border-blue-300 bg-card p-2 shadow-xl max-h-[300px] overflow-y-auto">
+              <div className="absolute top-12 left-0 z-50 w-64 rounded-lg border border-border bg-card p-2 shadow-xl max-h-[300px] overflow-y-auto">
                 <div className="flex gap-2 mb-2 pb-2 border-b border-border px-2">
                   <button onClick={() => setSelectedJobs(jobs.map(j => j.id))} className="text-xs font-semibold text-primary hover:underline">Select All</button>
                   <button onClick={() => setSelectedJobs([])} className="text-xs font-semibold text-muted-foreground hover:underline">Clear All</button>
                 </div>
                 {jobs.map(job => (
                   <label key={job.id} className="flex items-center gap-2 p-2 hover:bg-muted rounded-md cursor-pointer">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={selectedJobs.includes(job.id)}
                       onChange={() => {
                         setSelectedJobs(prev => prev.includes(job.id) ? prev.filter(id => id !== job.id) : [...prev, job.id]);
                       }}
-                      className="rounded border-gray-300"
+                      className="rounded border-border accent-primary"
                     />
-                    <span className="text-sm font-bold line-clamp-1 text-foreground">{job.title}</span>
+                    <span className="text-sm font-medium line-clamp-1 text-foreground">{job.title}</span>
                   </label>
                 ))}
               </div>
             )}
           </div>
-          <button
+          <Button
+            variant="outline"
+            size="lg"
             onClick={handleSyncAllActive}
             disabled={actionLoading || activeCalls.length === 0}
-            className="flex h-11 items-center justify-center rounded-xl border-2 border-blue-300 bg-blue-50 px-4 text-sm font-black text-blue-700 shadow-sm hover:bg-blue-100 disabled:opacity-75 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <RefreshCw size={16} className="mr-2" />} 
+            {actionLoading ? <Loader2 size={16} className="animate-spin"/> : <RefreshCw size={16} />}
             Sync Active ({activeCalls.length})
-          </button>
-          <button 
-            onClick={handleDeleteAllCompleted} 
-            disabled={actionLoading || selectedForDeletion.length === 0} 
-            className="flex h-11 items-center justify-center rounded-xl border-2 border-red-600 bg-red-50 text-red-700 px-4 text-sm font-black shadow-sm hover:bg-red-100 disabled:opacity-75 disabled:cursor-not-allowed whitespace-nowrap"
+          </Button>
+          <Button
+            variant="destructive"
+            size="lg"
+            onClick={handleDeleteAllCompleted}
+            disabled={actionLoading || selectedForDeletion.length === 0}
           >
-            {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <Trash2 size={16} className="mr-2" />} 
+            {actionLoading ? <Loader2 size={16} className="animate-spin"/> : <Trash2 size={16} />}
             Delete Selected ({selectedForDeletion.length})
-          </button>
-          <button
+          </Button>
+          <Button
+            size="lg"
             onClick={handleCallAll}
             disabled={actionLoading || selectedJobs.length === 0 || pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length === 0}
             title={selectedJobs.length === 0 ? 'Select at least one job posting first' : undefined}
-            className="flex h-11 items-center justify-center rounded-xl border-2 border-primary bg-primary px-4 text-sm font-extrabold text-primary-foreground shadow-lg hover:opacity-90 disabled:opacity-75 disabled:cursor-not-allowed whitespace-nowrap"
           >
-            {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <PlayCircle size={16} className="mr-2" />}
+            {actionLoading ? <Loader2 size={16} className="animate-spin"/> : <PlayCircle size={16} />}
             Call All Shortlisted ({pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length})
-          </button>
+          </Button>
         </div>
         {selectedJobs.length === 0 && (
           <p className="text-xs text-muted-foreground">
@@ -214,136 +229,112 @@ export default function CampaignsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Uncalled Candidates</p>
-            <span className="rounded-xl bg-muted p-2 text-muted-foreground"><Users size={16}/></span>
-          </div>
-          <div className="mt-4">
-            <h2 className="text-3xl font-bold tracking-tight">{pendingCalls.length}</h2>
-          </div>
-        </article>
-        <article className="rounded-2xl border border-border bg-card p-5 shadow-sm border-blue-200">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-blue-600">Active Calls</p>
-            <span className="rounded-xl bg-blue-100 p-2 text-blue-600"><Phone size={16}/></span>
-          </div>
-          <p className="mt-6 text-3xl font-bold tracking-[-0.06em] text-blue-600">{activeCalls.length}</p>
-        </article>
-        <article className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Completed Calls</p>
-            <span className="rounded-xl bg-emerald-100 p-2 text-emerald-600"><CheckCircle size={16}/></span>
-          </div>
-          <p className="mt-6 text-3xl font-bold tracking-[-0.06em] text-foreground">{completedCalls.length}</p>
-        </article>
+        <StatTile label="Uncalled Candidates" value={pendingCalls.length} icon={<Users size={16}/>} tone="neutral" />
+        <StatTile label="Active Calls" value={activeCalls.length} icon={<Phone size={16}/>} tone="warning" />
+        <StatTile label="Completed Calls" value={completedCalls.length} icon={<CheckCircle size={16}/>} tone="success" />
       </div>
 
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="flex border-b border-border bg-muted/20">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`flex-1 py-4 text-sm font-bold transition-colors ${activeTab === 'pending' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-muted-foreground hover:bg-muted/50'}`}
-          >
-            Uncalled & Active ({pendingCalls.length + activeCalls.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('completed')}
-            className={`flex-1 py-4 text-sm font-bold transition-colors ${activeTab === 'completed' ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600' : 'text-muted-foreground hover:bg-muted/50'}`}
-          >
-            Completed ({completedCalls.length})
-          </button>
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="border-b border-border bg-muted/20 p-3">
+          <Tabs>
+            <TabsList>
+              <TabsTrigger active={activeTab === 'pending'} onClick={() => setActiveTab('pending')}>
+                Uncalled &amp; Active ({pendingCalls.length + activeCalls.length})
+              </TabsTrigger>
+              <TabsTrigger active={activeTab === 'completed'} onClick={() => setActiveTab('completed')}>
+                Completed ({completedCalls.length})
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         {loading ? (
           <div className="p-12 text-center"><div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div></div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b-2 border-blue-300 bg-blue-50 text-xs font-bold uppercase tracking-wider text-blue-700">
-                <tr>
-                  <th className="px-6 py-4 w-12">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <input
+                    type="checkbox"
+                    className="rounded border-border accent-primary w-4 h-4"
+                    checked={displayCandidates.length > 0 && selectedForDeletion.length === displayCandidates.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedForDeletion(displayCandidates.map(c => c.candidate_id));
+                      } else {
+                        setSelectedForDeletion([]);
+                      }
+                    }}
+                  />
+                </TableHead>
+                <TableHead>Candidate</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {displayCandidates.length > 0 ? displayCandidates.map(candidate => (
+                <TableRow key={candidate.candidate_id} className={selectedForDeletion.includes(candidate.candidate_id) ? 'bg-muted/40' : ''}>
+                  <TableCell>
                     <input
                       type="checkbox"
                       className="rounded border-border accent-primary w-4 h-4"
-                      checked={displayCandidates.length > 0 && selectedForDeletion.length === displayCandidates.length}
+                      checked={selectedForDeletion.includes(candidate.candidate_id)}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setSelectedForDeletion(displayCandidates.map(c => c.candidate_id));
+                          setSelectedForDeletion(prev => [...prev, candidate.candidate_id]);
                         } else {
-                          setSelectedForDeletion([]);
+                          setSelectedForDeletion(prev => prev.filter(id => id !== candidate.candidate_id));
                         }
                       }}
                     />
-                  </th>
-                  <th className="px-6 py-4">Candidate</th>
-                  <th className="px-6 py-4">Role</th>
-                  <th className="px-6 py-4">Phone</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {displayCandidates.length > 0 ? displayCandidates.map(candidate => (
-                  <tr key={candidate.candidate_id} className={`hover:bg-muted/30 ${selectedForDeletion.includes(candidate.candidate_id) ? 'bg-muted/20' : ''}`}>
-                    <td className="px-6 py-4">
-                      <input 
-                        type="checkbox" 
-                        className="rounded border-border accent-primary w-4 h-4"
-                        checked={selectedForDeletion.includes(candidate.candidate_id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedForDeletion(prev => [...prev, candidate.candidate_id]);
-                          } else {
-                            setSelectedForDeletion(prev => prev.filter(id => id !== candidate.candidate_id));
-                          }
-                        }}
-                      />
-                    </td>
-                    <td className="px-6 py-4 font-medium">{candidate.name}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{candidate.role || 'N/A'}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{candidate.phone}</td>
-                    <td className="px-6 py-4">
-                      {candidate.status === 'calling' ? (
-                        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-blue-800">
-                          <span className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse"></span> Calling
-                        </span>
-                      ) : candidate.call_status === 'completed' ? (
-                        <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-800">Completed</span>
-                      ) : (
-                        <span className="inline-flex items-center rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-orange-800">Pending</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      {activeTab === 'pending' && candidate.status === 'calling' && (
-                        <button onClick={() => handleSyncSingle(candidate.candidate_id)} disabled={actionLoading} className="text-blue-600 flex items-center gap-1 hover:underline font-semibold disabled:opacity-50">
-                          <RefreshCw size={12} /> Sync Status
-                        </button>
-                      )}
-                      {activeTab === 'pending' && candidate.status !== 'calling' && (
-                        <button onClick={() => handleCallSingle(candidate.candidate_id)} disabled={actionLoading} className="text-primary hover:underline font-semibold disabled:opacity-50">
-                          Call Now
-                        </button>
-                      )}
-                      {activeTab === 'completed' && (
-                        <div className="flex flex-col text-xs gap-1">
-                          {candidate.interest && <span><span className="font-semibold text-muted-foreground">Interest:</span> {candidate.interest}</span>}
-                          {candidate.communication_score && <span><span className="font-semibold text-muted-foreground">Comm:</span> {candidate.communication_score}/100</span>}
-                          {candidate.recording_url && <a href={candidate.recording_url} target="_blank" rel="noreferrer" className="text-primary hover:underline mt-1">Listen Recording</a>}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground">
-                      No candidates found in this category.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </TableCell>
+                  <TableCell className="font-medium">{candidate.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{candidate.role || 'N/A'}</TableCell>
+                  <TableCell className="text-muted-foreground">{candidate.phone}</TableCell>
+                  <TableCell>
+                    {candidate.status === 'calling' ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-warning-text">
+                        <span className="h-1.5 w-1.5 rounded-full bg-warning-text animate-pulse"></span> Calling
+                      </span>
+                    ) : candidate.call_status === 'completed' ? (
+                      <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-success">Completed</span>
+                    ) : (
+                      <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Pending</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {activeTab === 'pending' && candidate.status === 'calling' && (
+                      <button onClick={() => handleSyncSingle(candidate.candidate_id)} disabled={actionLoading} className="text-primary flex items-center gap-1 hover:underline font-semibold disabled:opacity-50">
+                        <RefreshCw size={12} /> Sync Status
+                      </button>
+                    )}
+                    {activeTab === 'pending' && candidate.status !== 'calling' && (
+                      <button onClick={() => handleCallSingle(candidate.candidate_id)} disabled={actionLoading} className="text-primary hover:underline font-semibold disabled:opacity-50">
+                        Call Now
+                      </button>
+                    )}
+                    {activeTab === 'completed' && (
+                      <div className="flex flex-col text-xs gap-1">
+                        {candidate.interest && <span><span className="font-semibold text-muted-foreground">Interest:</span> {candidate.interest}</span>}
+                        {candidate.communication_score && <span><span className="font-semibold text-muted-foreground">Comm:</span> {candidate.communication_score}/100</span>}
+                        {candidate.recording_url && <a href={candidate.recording_url} target="_blank" rel="noreferrer" className="text-primary hover:underline mt-1">Listen Recording</a>}
+                      </div>
+                    )}
+                  </TableCell>
+                </TableRow>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
+                    No candidates found in this category.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         )}
       </div>
     </div>

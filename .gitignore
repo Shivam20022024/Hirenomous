@@ -43,3 +43,8 @@ backend/interview_*.xlsx
 # Runtime logs
 *.log
 backend/server_8001_*.txt
+
+# Tooling / editor caches (do not commit)
+.impeccable/
+.claude/
+antigravity-*.md

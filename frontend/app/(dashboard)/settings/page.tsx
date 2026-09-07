@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { User, Building, Mail, Shield, Bell, Key, LogOut } from 'lucide-react';
+import { PageHeader } from '@/components/page-header';
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
@@ -10,10 +11,7 @@ export default function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-[1240px] space-y-6 px-5 py-9 lg:px-8 lg:py-14">
-      <div>
-        <h1 className="text-3xl font-bold tracking-[-0.06em]">Settings</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Manage your account settings and preferences.</p>
-      </div>
+      <PageHeader eyebrow="Account" title="Settings" description="Manage your account settings and preferences." />
 
       <div className="flex flex-col md:flex-row gap-8">
         <aside className="w-full md:w-64 shrink-0 space-y-1">
@@ -46,7 +44,7 @@ export default function SettingsPage() {
 
         <div className="flex-1 space-y-6">
           {activeTab === 'profile' && (
-            <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
               <div className="border-b border-border px-6 py-5 bg-muted/30">
                 <h2 className="text-lg font-bold">Profile Details</h2>
                 <p className="text-sm text-muted-foreground">Your personal account information.</p>
@@ -83,7 +81,7 @@ export default function SettingsPage() {
           )}
 
           {activeTab === 'organization' && (
-            <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
               <div className="border-b border-border px-6 py-5 bg-muted/30">
                 <h2 className="text-lg font-bold">Organization Details</h2>
                 <p className="text-sm text-muted-foreground">Information about your workspace.</p>
@@ -107,7 +105,7 @@ export default function SettingsPage() {
           )}
 
           {activeTab === 'security' && (
-            <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="rounded-xl border border-border bg-card overflow-hidden">
               <div className="border-b border-border px-6 py-5 bg-muted/30">
                 <h2 className="text-lg font-bold">Security</h2>
                 <p className="text-sm text-muted-foreground">Manage your password and security preferences.</p>

@@ -5,23 +5,21 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, Check, X, HelpCircle, FileText, RefreshCw, MessageSquare, Video, Play, TrendingUp, AlertTriangle } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { StatusPill } from '@/components/status-pill';
 
 const scoreColor = (v: number) =>
-  v >= 80 ? 'text-emerald-600' : v >= 60 ? 'text-blue-600' : v >= 40 ? 'text-amber-600' : 'text-red-600';
+  v >= 80 ? 'text-success' : v >= 60 ? 'text-primary' : v >= 40 ? 'text-warning-text' : 'text-destructive';
 const barColor = (v: number) =>
-  v >= 80 ? 'bg-emerald-500' : v >= 60 ? 'bg-blue-500' : v >= 40 ? 'bg-amber-500' : 'bg-red-500';
+  v >= 80 ? 'bg-success' : v >= 60 ? 'bg-primary' : v >= 40 ? 'bg-warning' : 'bg-destructive';
 
 const REC_LABEL: Record<string, string> = {
   strong_match: 'STRONG MATCH',
   match: 'MATCH',
   weak_match: 'WEAK MATCH',
   no_match: 'NO MATCH',
-};
-const REC_STYLE: Record<string, string> = {
-  strong_match: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-  match: 'bg-blue-100 text-blue-800 border-blue-200',
-  weak_match: 'bg-orange-100 text-orange-800 border-orange-200',
-  no_match: 'bg-destructive/10 text-destructive border-destructive/20',
 };
 
 const DIMENSIONS: [string, string][] = [
@@ -160,49 +158,44 @@ export default function InterviewReportPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">AI Interview Report</p>
+          <p className="eyebrow">AI Interview Report</p>
           <h1 className="mt-2 text-4xl font-bold tracking-tight text-foreground">{report.candidate_name}</h1>
           <p className="mt-1.5 text-base font-semibold text-muted-foreground">{report.position}</p>
         </div>
-        <span className={`inline-flex items-center rounded-full px-3.5 py-1.5 text-xs font-bold uppercase tracking-wider ring-1 ${
-          report.status === 'completed'
-            ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-            : 'bg-muted text-muted-foreground ring-border'
-        }`}>
-          {String(report.status).replace('_', ' ')}
-        </span>
+        {report.status === 'completed' ? (
+          <StatusPill domain="interview" status="completed" label={String(report.status).replace('_', ' ')} />
+        ) : (
+          <StatusPill domain="interview" status={report.status} label={String(report.status).replace('_', ' ')} />
+        )}
       </div>
 
       {report.status !== 'completed' ? (
-        <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
           This interview has not been completed yet, so there is no report to show.
         </div>
       ) : !evaluated ? (
-        <div className="rounded-2xl border border-border bg-card p-8 text-center">
+        <div className="rounded-xl border border-border bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
             The interview is complete but the AI evaluation has not finished (status: {report.evaluation_status}).
           </p>
-          <button
-            onClick={reevaluate}
-            disabled={busy}
-            className="mt-4 inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
+          <Button onClick={reevaluate} disabled={busy} className="mt-4">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw size={14} />} Run evaluation
-          </button>
+          </Button>
         </div>
       ) : (
         <>
           {/* Overall + recommendation */}
           <div className="grid gap-4 sm:grid-cols-[1fr_1.4fr]">
-            <div className="rounded-2xl border border-border bg-card p-7">
+            <div className="rounded-xl border border-border bg-card p-7">
               <p className="text-sm font-bold uppercase tracking-[0.14em] text-muted-foreground">Overall Score</p>
-              <p className={`mt-3 text-6xl font-black tracking-tight ${overall != null ? scoreColor(overall) : 'text-foreground'}`}>
+              <p className={`mt-3 font-mono text-6xl font-black tracking-tight ${overall != null ? scoreColor(overall) : 'text-foreground'}`}>
                 {overall != null ? Math.round(overall) : '—'}
                 <span className="text-2xl font-semibold text-muted-foreground"> / 100</span>
               </p>
               {rec && (
-                <span className={`mt-5 inline-flex items-center rounded-lg border px-3.5 py-2 text-sm font-bold uppercase tracking-wider ${REC_STYLE[rec] || 'bg-muted'}`}>
-                  AI Recommendation: {REC_LABEL[rec] || rec}
+                <span className="mt-5 inline-block">
+                  <span className="mr-1.5 text-sm font-bold uppercase tracking-wider text-muted-foreground">AI Recommendation:</span>
+                  <StatusPill domain="recommendation" status={rec} label={REC_LABEL[rec] || rec} />
                 </span>
               )}
               <p className="mt-4 text-xs font-medium text-muted-foreground">
@@ -210,7 +203,7 @@ export default function InterviewReportPage() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-border bg-card p-7">
+            <div className="rounded-xl border border-border bg-card p-7">
               <p className="mb-5 text-sm font-bold uppercase tracking-[0.14em] text-muted-foreground">Breakdown</p>
               <div className="space-y-4">
                 {DIMENSIONS.map(([key, label]) => {
@@ -219,14 +212,12 @@ export default function InterviewReportPage() {
                     <div key={key}>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-foreground">{label}</span>
-                        <span className={`text-base font-bold ${v != null ? scoreColor(v) : 'text-muted-foreground'}`}>
+                        <span className={`font-mono text-base font-bold ${v != null ? scoreColor(v) : 'text-muted-foreground'}`}>
                           {v != null ? Math.round(v) : '—'}
                           <span className="text-xs font-medium text-muted-foreground">/100</span>
                         </span>
                       </div>
-                      <div className="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-muted">
-                        <div className={`h-full rounded-full ${barColor(v || 0)}`} style={{ width: `${Math.min(100, v || 0)}%` }} />
-                      </div>
+                      <Progress value={v || 0} className="mt-1.5" barClassName={barColor(v || 0)} />
                     </div>
                   );
                 })}
@@ -236,15 +227,15 @@ export default function InterviewReportPage() {
 
           {/* Strengths / areas */}
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-emerald-700">
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-success">
                 <TrendingUp size={17} /> Strengths
               </h3>
               <ul className="space-y-2.5 text-sm font-medium text-foreground/80">
                 {(aiReport.strengths || []).length ? (
                   aiReport.strengths.map((s: string, i: number) => (
                     <li key={i} className="flex gap-2.5">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-success" />
                       {s}
                     </li>
                   ))
@@ -253,15 +244,15 @@ export default function InterviewReportPage() {
                 )}
               </ul>
             </div>
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-orange-700">
+            <div className="rounded-xl border border-border bg-card p-6">
+              <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-warning-text">
                 <AlertTriangle size={17} /> Areas to Improve
               </h3>
               <ul className="space-y-2.5 text-sm font-medium text-foreground/80">
                 {(aiReport.areas_to_improve || []).length ? (
                   aiReport.areas_to_improve.map((s: string, i: number) => (
                     <li key={i} className="flex gap-2.5">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-500" />
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />
                       {s}
                     </li>
                   ))
@@ -273,7 +264,7 @@ export default function InterviewReportPage() {
           </div>
 
           {aiReport.summary && (
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="rounded-xl border border-border bg-card p-6">
               <h3 className="mb-3 flex items-center gap-2 text-base font-bold text-foreground">
                 <FileText size={17} /> Summary
               </h3>
@@ -287,7 +278,7 @@ export default function InterviewReportPage() {
           {report.status === 'completed'
             && (detail?.answers?.length ?? 0) > 0
             && !detail.answers.some((a: any) => a.has_video || a.has_audio) && (
-            <div className="rounded-2xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">
+            <div className="rounded-xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">
               <span className="font-bold text-foreground">Answer recordings:</span> none are available for this interview
               (the candidate answered by text, or the video files are no longer stored). The full transcript is still available.
             </div>
@@ -295,7 +286,7 @@ export default function InterviewReportPage() {
 
           {/* Answer recordings (recruiter-only, streamed through the authenticated endpoint) */}
           {detail?.answers?.some((a: any) => a.has_video || a.has_audio) && (
-            <div className="rounded-2xl border border-border bg-card p-6">
+            <div className="rounded-xl border border-border bg-card p-6">
               <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-foreground">
                 <Video size={17} /> Answer Recordings
               </h3>
@@ -309,14 +300,15 @@ export default function InterviewReportPage() {
                       <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground/80">
                         {q?.is_followup ? 'Follow-up: ' : ''}{title}
                       </p>
-                      <button
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => viewRecording(a.answer_index, title)}
                         disabled={recLoading === a.answer_index}
-                        className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold hover:bg-muted disabled:opacity-50"
                       >
                         {recLoading === a.answer_index ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
                         {a.has_video ? 'View recording' : 'Play audio'}
-                      </button>
+                      </Button>
                     </div>
                   );
                 })}
@@ -328,34 +320,31 @@ export default function InterviewReportPage() {
           )}
 
           {/* Interview meta */}
-          <div className="flex flex-wrap items-center gap-10 rounded-2xl border border-border bg-card p-6">
+          <div className="flex flex-wrap items-center gap-10 rounded-xl border border-border bg-card p-6">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Questions</p>
-              <p className="mt-1.5 text-2xl font-bold text-foreground">{report.questions_total}</p>
+              <p className="mt-1.5 font-mono text-2xl font-bold text-foreground">{report.questions_total}</p>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Answered</p>
-              <p className="mt-1.5 text-2xl font-bold text-foreground">{report.questions_answered}</p>
+              <p className="mt-1.5 font-mono text-2xl font-bold text-foreground">{report.questions_answered}</p>
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duration</p>
-              <p className="mt-1.5 text-2xl font-bold text-foreground">{report.duration_minutes != null ? `${report.duration_minutes} min` : '—'}</p>
+              <p className="mt-1.5 font-mono text-2xl font-bold text-foreground">{report.duration_minutes != null ? `${report.duration_minutes} min` : '—'}</p>
             </div>
             {report.evaluation_status === 'needs_review' && (
-              <div className="flex items-center gap-1.5 text-sm font-semibold text-orange-600">
+              <div className="flex items-center gap-1.5 text-sm font-semibold text-warning-text">
                 <HelpCircle size={15} /> Flagged for human review (limited interview data)
               </div>
             )}
           </div>
 
           {/* Actions */}
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-card p-6">
-            <button
-              onClick={openTranscript}
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-5 text-sm font-bold hover:bg-muted"
-            >
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-6">
+            <Button variant="outline" size="lg" onClick={openTranscript}>
               <MessageSquare size={16} /> View Transcript
-            </button>
+            </Button>
 
             {decided ? (
               <span className="inline-flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-sm font-bold text-muted-foreground">
@@ -364,27 +353,15 @@ export default function InterviewReportPage() {
               </span>
             ) : (
               <>
-                <button
-                  onClick={() => decide('select')}
-                  disabled={busy}
-                  className="inline-flex h-11 items-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-bold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
-                >
+                <Button size="lg" variant="success" onClick={() => decide('select')} disabled={busy}>
                   <Check size={16} /> Select Candidate
-                </button>
-                <button
-                  onClick={() => decide('reject')}
-                  disabled={busy}
-                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-destructive/30 bg-destructive/10 px-5 text-sm font-bold text-destructive hover:bg-destructive/20 disabled:opacity-50"
-                >
+                </Button>
+                <Button size="lg" variant="destructive" onClick={() => decide('reject')} disabled={busy}>
                   <X size={16} /> Reject Candidate
-                </button>
-                <button
-                  onClick={() => decide('needs_review')}
-                  disabled={busy}
-                  className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-background px-5 text-sm font-bold hover:bg-muted disabled:opacity-50"
-                >
+                </Button>
+                <Button size="lg" variant="outline" onClick={() => decide('needs_review')} disabled={busy}>
                   <HelpCircle size={16} /> Needs Review
-                </button>
+                </Button>
               </>
             )}
           </div>
@@ -396,65 +373,53 @@ export default function InterviewReportPage() {
       )}
 
       {/* Recording modal */}
-      {recording && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm" onClick={closeRecording}>
-          <div className="relative w-full max-w-3xl rounded-2xl border border-border bg-card shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-4">
-              <h2 className="flex items-center gap-2 text-sm font-bold"><Video size={16} /> {recording.title}</h2>
-              <button onClick={closeRecording} className="rounded-full p-2 text-muted-foreground hover:bg-muted"><X size={18} /></button>
-            </div>
-            <div className="p-4">
-              <video src={recording.url} controls autoPlay className="w-full rounded-lg bg-black" />
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={!!recording} onOpenChange={(open) => !open && closeRecording()}>
+        <DialogContent className="max-w-3xl p-0">
+          {recording && (
+            <>
+              <DialogHeader className="border-b border-border px-6 py-4 mb-0">
+                <DialogTitle className="flex items-center gap-2 text-sm"><Video size={16} /> {recording.title}</DialogTitle>
+              </DialogHeader>
+              <div className="p-4">
+                <video src={recording.url} controls autoPlay className="w-full rounded-lg bg-black" />
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Transcript modal */}
-      {showTranscript && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
-          onClick={() => setShowTranscript(false)}
-        >
-          <div
-            className="relative max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 flex items-center justify-between border-b border-border bg-card/90 px-6 py-4 backdrop-blur">
-              <h2 className="flex items-center gap-2 text-lg font-bold">
-                <FileText size={18} /> Interview Transcript
-              </h2>
-              <button onClick={() => setShowTranscript(false)} className="rounded-full p-2 text-muted-foreground hover:bg-muted">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="space-y-4 p-6">
-              {transcript === null ? (
-                <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
-              ) : transcript.length === 0 ? (
-                <p className="text-center text-sm text-muted-foreground">No transcript recorded.</p>
-              ) : (
-                transcript.map((t, i) => (
-                  <div key={i} className={`flex ${t.role === 'candidate' ? 'justify-end' : 'justify-start'}`}>
-                    <div
-                      className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
-                        t.role === 'candidate'
-                          ? 'bg-primary text-primary-foreground rounded-tr-sm'
-                          : 'border border-border bg-muted text-foreground rounded-tl-sm'
-                      }`}
-                    >
-                      <p className="mb-1 text-[11px] font-bold uppercase tracking-wider opacity-70">
-                        {t.role === 'candidate' ? report.candidate_name : 'AI Interviewer'}
-                      </p>
-                      {t.text}
-                    </div>
+      <Dialog open={showTranscript} onOpenChange={setShowTranscript}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg"><FileText size={18} /> Interview Transcript</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {transcript === null ? (
+              <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+            ) : transcript.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground">No transcript recorded.</p>
+            ) : (
+              transcript.map((t, i) => (
+                <div key={i} className={`flex ${t.role === 'candidate' ? 'justify-end' : 'justify-start'}`}>
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
+                      t.role === 'candidate'
+                        ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                        : 'border border-border bg-muted text-foreground rounded-tl-sm'
+                    }`}
+                  >
+                    <p className="mb-1 text-[11px] font-bold uppercase tracking-wider opacity-70">
+                      {t.role === 'candidate' ? report.candidate_name : 'AI Interviewer'}
+                    </p>
+                    {t.text}
                   </div>
-                ))
-              )}
-            </div>
+                </div>
+              ))
+            )}
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -4,23 +4,17 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, Eye, FileText, Send, XCircle, Check, X } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
-
-const STATUS_STYLES: Record<string, string> = {
-  invited: 'bg-blue-100 text-blue-800',
-  scheduled: 'bg-blue-100 text-blue-800',
-  in_progress: 'bg-amber-100 text-amber-800',
-  completed: 'bg-emerald-100 text-emerald-800',
-  cancelled: 'bg-muted text-muted-foreground',
-  expired: 'bg-orange-100 text-orange-800',
-  failed: 'bg-destructive/10 text-destructive',
-};
-
-const REC_STYLES: Record<string, string> = {
-  strong_match: 'bg-emerald-100 text-emerald-800',
-  match: 'bg-blue-100 text-blue-800',
-  weak_match: 'bg-orange-100 text-orange-800',
-  no_match: 'bg-destructive/10 text-destructive',
-};
+import { PageHeader } from '@/components/page-header';
+import { StatusPill } from '@/components/status-pill';
+import { Select } from '@/components/ui/select';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 const REC_LABEL: Record<string, string> = {
   strong_match: 'Strong match',
@@ -114,164 +108,153 @@ export default function InterviewsPage() {
     }
   };
 
-  const selectStyle = 'h-10 rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary';
-
   return (
     <div className="mx-auto max-w-[1240px] space-y-6 px-5 py-9 lg:px-8 lg:py-14">
-      <div>
-        <h1 className="text-3xl font-bold tracking-[-0.06em]">AI Interviews</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Invite interested candidates to an AI interview, review the AI report, and make the final decision.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Assessments"
+        title="AI Interviews"
+        description="Invite interested candidates to an AI interview, review the AI report, and make the final decision."
+      />
 
       <div className="flex flex-wrap gap-2">
-        <select value={jobFilter} onChange={(e) => setJobFilter(e.target.value)} className={selectStyle}>
+        <Select value={jobFilter} onChange={(e) => setJobFilter(e.target.value)} className="h-10 w-auto min-w-[160px]">
           <option value="">All jobs</option>
           {jobs.map((j) => (
             <option key={j.id} value={j.id}>{j.title}</option>
           ))}
-        </select>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectStyle}>
+        </Select>
+        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-10 w-auto min-w-[160px]">
           <option value="">All statuses</option>
           {['invited', 'in_progress', 'completed', 'cancelled', 'expired', 'failed'].map((s) => (
             <option key={s} value={s}>{s.replace('_', ' ')}</option>
           ))}
-        </select>
-        <select value={recFilter} onChange={(e) => setRecFilter(e.target.value)} className={selectStyle}>
+        </Select>
+        <Select value={recFilter} onChange={(e) => setRecFilter(e.target.value)} className="h-10 w-auto min-w-[180px]">
           <option value="">All recommendations</option>
           {Object.keys(REC_LABEL).map((r) => (
             <option key={r} value={r}>{REC_LABEL[r]}</option>
           ))}
-        </select>
+        </Select>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b-2 border-primary/30 bg-primary/10 text-xs font-bold uppercase tracking-wider text-primary">
-              <tr>
-                <th className="px-6 py-4">Candidate</th>
-                <th className="px-6 py-4">Position</th>
-                <th className="px-6 py-4">Interview Status</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4">AI Score</th>
-                <th className="px-6 py-4">Recommendation</th>
-                <th className="px-6 py-4">Duration</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="px-6 py-16 text-center">
-                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
-                  </td>
-                </tr>
-              ) : interviews.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
-                    No interviews yet. Invite an interested candidate from the Candidates page.
-                  </td>
-                </tr>
-              ) : (
-                interviews.map((iv) => (
-                  <tr key={iv.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4 font-medium text-foreground">{iv.candidate_name}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{iv.position}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${STATUS_STYLES[iv.status] || 'bg-muted text-muted-foreground'}`}>
-                        {String(iv.status).replace('_', ' ')}
-                      </span>
-                      {iv.status === 'completed' && iv.evaluation_status !== 'evaluated' && (
-                        <span className="ml-1 text-[10px] text-muted-foreground">({iv.evaluation_status})</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-muted-foreground">
-                      {iv.completed_at
-                        ? new Date(iv.completed_at).toLocaleDateString()
-                        : iv.invited_at
-                        ? new Date(iv.invited_at).toLocaleDateString()
-                        : new Date(iv.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 font-semibold">
-                      {iv.overall_score != null ? `${Math.round(iv.overall_score)}/100` : '—'}
-                    </td>
-                    <td className="px-6 py-4">
-                      {iv.recommendation ? (
-                        <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${REC_STYLES[iv.recommendation] || 'bg-muted'}`}>
-                          {REC_LABEL[iv.recommendation] || iv.recommendation}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-xs text-muted-foreground">
-                      {iv.duration_seconds ? `${Math.round(iv.duration_seconds / 60)} min` : '—'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <Link
-                          href={`/interviews/${iv.id}`}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
-                          title="View report"
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Candidate</TableHead>
+            <TableHead>Position</TableHead>
+            <TableHead>Interview Status</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead>AI Score</TableHead>
+            <TableHead>Recommendation</TableHead>
+            <TableHead>Duration</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            <TableRow>
+              <TableCell colSpan={8} className="py-16 text-center">
+                <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+              </TableCell>
+            </TableRow>
+          ) : interviews.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
+                No interviews yet. Invite an interested candidate from the Candidates page.
+              </TableCell>
+            </TableRow>
+          ) : (
+            interviews.map((iv) => (
+              <TableRow key={iv.id}>
+                <TableCell className="font-medium text-foreground">{iv.candidate_name}</TableCell>
+                <TableCell className="text-muted-foreground">{iv.position}</TableCell>
+                <TableCell>
+                  <StatusPill domain="interview" status={iv.status} label={String(iv.status).replace('_', ' ')} />
+                  {iv.status === 'completed' && iv.evaluation_status !== 'evaluated' && (
+                    <span className="ml-1 text-[10px] text-muted-foreground">({iv.evaluation_status})</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {iv.completed_at
+                    ? new Date(iv.completed_at).toLocaleDateString()
+                    : iv.invited_at
+                    ? new Date(iv.invited_at).toLocaleDateString()
+                    : new Date(iv.created_at).toLocaleDateString()}
+                </TableCell>
+                <TableCell className="font-mono font-semibold">
+                  {iv.overall_score != null ? `${Math.round(iv.overall_score)}/100` : '—'}
+                </TableCell>
+                <TableCell>
+                  {iv.recommendation ? (
+                    <StatusPill domain="recommendation" status={iv.recommendation} label={REC_LABEL[iv.recommendation] || iv.recommendation} />
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-xs text-muted-foreground">
+                  {iv.duration_seconds ? `${Math.round(iv.duration_seconds / 60)} min` : '—'}
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center justify-end gap-1">
+                    <Link
+                      href={`/interviews/${iv.id}`}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                      title="View report"
+                    >
+                      {iv.status === 'completed' ? <FileText size={15} /> : <Eye size={15} />}
+                    </Link>
+                    {['invited', 'scheduled', 'expired', 'in_progress'].includes(iv.status) && (
+                      <button
+                        onClick={() => resend(iv.id)}
+                        disabled={busyId === iv.id}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-40"
+                        title="Resend invitation"
+                      >
+                        <Send size={15} />
+                      </button>
+                    )}
+                    {!['completed', 'cancelled', 'expired', 'failed'].includes(iv.status) && (
+                      <button
+                        onClick={() => cancel(iv.id)}
+                        disabled={busyId === iv.id}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
+                        title="Cancel interview"
+                      >
+                        <XCircle size={15} />
+                      </button>
+                    )}
+                    {iv.status === 'completed' && !iv.recruiter_decision && (
+                      <>
+                        <button
+                          onClick={() => decide(iv.id, 'select')}
+                          disabled={busyId === iv.id}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-success hover:bg-success/10 disabled:opacity-40"
+                          title="Select candidate"
                         >
-                          {iv.status === 'completed' ? <FileText size={15} /> : <Eye size={15} />}
-                        </Link>
-                        {['invited', 'scheduled', 'expired', 'in_progress'].includes(iv.status) && (
-                          <button
-                            onClick={() => resend(iv.id)}
-                            disabled={busyId === iv.id}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-primary/10 hover:text-primary disabled:opacity-40"
-                            title="Resend invitation"
-                          >
-                            <Send size={15} />
-                          </button>
-                        )}
-                        {!['completed', 'cancelled', 'expired', 'failed'].includes(iv.status) && (
-                          <button
-                            onClick={() => cancel(iv.id)}
-                            disabled={busyId === iv.id}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive disabled:opacity-40"
-                            title="Cancel interview"
-                          >
-                            <XCircle size={15} />
-                          </button>
-                        )}
-                        {iv.status === 'completed' && !iv.recruiter_decision && (
-                          <>
-                            <button
-                              onClick={() => decide(iv.id, 'select')}
-                              disabled={busyId === iv.id}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 disabled:opacity-40"
-                              title="Select candidate"
-                            >
-                              <Check size={15} />
-                            </button>
-                            <button
-                              onClick={() => decide(iv.id, 'reject')}
-                              disabled={busyId === iv.id}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 disabled:opacity-40"
-                              title="Reject candidate"
-                            >
-                              <X size={15} />
-                            </button>
-                          </>
-                        )}
-                        {iv.recruiter_decision && (
-                          <span className="ml-1 text-[10px] font-semibold uppercase text-muted-foreground">
-                            {iv.recruiter_decision}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                          <Check size={15} />
+                        </button>
+                        <button
+                          onClick={() => decide(iv.id, 'reject')}
+                          disabled={busyId === iv.id}
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-destructive hover:bg-destructive/10 disabled:opacity-40"
+                          title="Reject candidate"
+                        >
+                          <X size={15} />
+                        </button>
+                      </>
+                    )}
+                    {iv.recruiter_decision && (
+                      <span className="ml-1 text-[10px] font-semibold uppercase text-muted-foreground">
+                        {iv.recruiter_decision}
+                      </span>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }

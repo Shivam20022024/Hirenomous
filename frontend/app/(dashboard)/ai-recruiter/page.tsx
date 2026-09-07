@@ -230,13 +230,13 @@ export default function AIRecruiterPage() {
                   <Bot size={18} className="text-primary"/>
                   <h2 className="font-bold">Test Simulator</h2>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
-                   <div className="h-1.5 w-1.5 rounded-full bg-emerald-600 animate-pulse"></div>
+                <div className="flex items-center gap-1.5 text-xs font-medium text-success bg-success/10 px-2 py-1 rounded-full border border-success/20">
+                   <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse"></div>
                    Ready
                 </div>
               </div>
-              
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_23px,#f8fafc_24px)]">
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[repeating-linear-gradient(to_bottom,transparent_0,transparent_23px,var(--color-muted)_24px)]">
                 {messages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-6">
                     <MessageSquare size={32} className="mb-4 opacity-20"/>

@@ -17,6 +17,8 @@ import {
 } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import { PageHeader } from '@/components/page-header';
+import { Select } from '@/components/ui/select';
 
 const METRIC_ICONS: Record<string, any> = {
   total_candidates: UsersRound,
@@ -36,8 +38,8 @@ const METRIC_COLORS: Record<string, string> = {
   interested: 'text-primary',
   interviews: 'text-foreground',
   selected: 'text-foreground',
-  hired: 'text-emerald-600',
-  callback_required: 'text-orange-500'
+  hired: 'text-success',
+  callback_required: 'text-warning-text'
 };
 
 const METRIC_LABELS: Record<string, string> = {
@@ -160,25 +162,25 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1240px] space-y-6 px-5 py-9 lg:px-8 lg:py-14">
-      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div>
-          <p className="eyebrow">Overview · Performance workspace</p>
-          <h1 className="mt-3 text-3xl font-bold tracking-[-0.06em]">Hiring analytics</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Track recruitment performance, conversion, and hiring outcomes across roles.</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => handleExport('csv')} className="rounded-xl border border-border bg-card px-3.5 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted">
-            <ArrowDownToLine className="mr-2 inline" size={15}/>Export CSV
-          </button>
-          <button onClick={() => handleExport('excel')} className="rounded-xl bg-primary px-3.5 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90">
-            <ArrowDownToLine className="mr-2 inline" size={15}/>Export Excel
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Overview · Performance workspace"
+        title="Hiring analytics"
+        description="Track recruitment performance, conversion, and hiring outcomes across roles."
+        action={
+          <>
+            <button onClick={() => handleExport('csv')} className="rounded-lg border border-border bg-card px-3.5 py-2.5 text-sm font-semibold text-muted-foreground hover:bg-muted">
+              <ArrowDownToLine className="mr-2 inline" size={15}/>Export CSV
+            </button>
+            <button onClick={() => handleExport('excel')} className="rounded-lg bg-primary px-3.5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90">
+              <ArrowDownToLine className="mr-2 inline" size={15}/>Export Excel
+            </button>
+          </>
+        }
+      />
 
-      <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-end">
+      <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:flex-row sm:flex-wrap sm:items-end">
         <label className="eyebrow flex-1 min-w-[200px]">Date range
-          <select value={dateRange} onChange={e => setDateRange(e.target.value)} className="mt-2 block h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/30">
+          <Select value={dateRange} onChange={e => setDateRange(e.target.value)} className="mt-2 h-11 bg-muted">
             <option value="today">Today</option>
             <option value="last_7_days">Last 7 Days</option>
             <option value="this_week">This Week</option>
@@ -187,19 +189,19 @@ export default function DashboardPage() {
             <option value="last_month">Last Month</option>
             <option value="this_quarter">This Quarter</option>
             <option value="this_year">This Year</option>
-          </select>
+          </Select>
         </label>
         <label className="eyebrow flex-1 min-w-[200px]">Job role
-          <select value={jobId} onChange={e => setJobId(e.target.value)} className="mt-2 block h-11 w-full rounded-xl border border-border bg-muted px-3 text-sm font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/30">
+          <Select value={jobId} onChange={e => setJobId(e.target.value)} className="mt-2 h-11 bg-muted">
             <option value="">All jobs</option>
             {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
-          </select>
+          </Select>
         </label>
         <div className="flex gap-2 sm:shrink-0">
-          <button onClick={loadDashboardData} className="h-11 flex-1 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 sm:flex-none">
+          <button onClick={loadDashboardData} className="h-11 flex-1 rounded-lg bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 sm:flex-none">
             Apply filters
           </button>
-          <button onClick={() => { setDateRange('last_30_days'); setJobId(''); }} className="h-11 flex-1 rounded-xl border border-border px-5 text-sm font-semibold text-muted-foreground hover:bg-muted sm:flex-none">
+          <button onClick={() => { setDateRange('last_30_days'); setJobId(''); }} className="h-11 flex-1 rounded-lg border border-border px-5 text-sm font-semibold text-muted-foreground hover:bg-muted sm:flex-none">
             Reset
           </button>
         </div>
@@ -220,11 +222,11 @@ export default function DashboardPage() {
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-foreground opacity-80">{METRIC_LABELS[key]}</p>
                   <span className="rounded-xl bg-muted p-2 text-muted-foreground"><Icon size={16}/></span>
                 </div>
-                <p className={`mt-6 text-3xl font-bold tracking-[-0.06em] ${color}`}>{String(value)}</p>
-                <p className={`mt-1 text-xs ${change > 0 ? 'text-emerald-600' : 'text-muted-foreground'}`}>{changeText}</p>
+                <p className={`mt-6 font-mono text-3xl font-bold tracking-[-0.02em] ${color}`}>{String(value)}</p>
+                <p className={`mt-1 text-xs ${change > 0 ? 'text-success' : 'text-muted-foreground'}`}>{changeText}</p>
               </>
             );
-            const cardClass = "block rounded-2xl border border-border bg-card p-5 shadow-[0_2px_8px_rgba(20,35,60,0.03)] transition-shadow hover:shadow-md";
+            const cardClass = "block rounded-xl border border-border bg-card p-5 shadow-sm transition-shadow hover:shadow-md";
 
             if (key === 'interviews') {
               return (
@@ -243,7 +245,7 @@ export default function DashboardPage() {
       )}
 
       {funnelData && (
-        <section className="rounded-2xl border border-border bg-card p-6">
+        <section className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="eyebrow">Pipeline overview</p>
@@ -254,7 +256,7 @@ export default function DashboardPage() {
             {stages.map(([value, label], index) => (
               <div key={label} className="flex flex-1 items-center lg:block">
                 <div className="flex items-center lg:block">
-                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 text-lg font-bold ${index < 2 ? 'border-blue-300 bg-blue-50 text-primary' : index < 5 ? 'border-indigo-200 bg-indigo-50 text-indigo-600' : 'border-emerald-200 bg-emerald-50 text-emerald-600'}`}>
+                  <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 font-mono text-lg font-bold ${index < 2 ? 'border-primary/30 bg-primary/10 text-primary' : index < 5 ? 'border-accent/40 bg-accent/15 text-accent-foreground' : 'border-success/30 bg-success/15 text-success'}`}>
                     {value}
                   </div>
                   {index < stages.length - 1 && <div className="hidden h-px w-full bg-border lg:block"/>}
@@ -267,7 +269,7 @@ export default function DashboardPage() {
       )}
 
       <div className="grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
-        <section className="rounded-2xl border border-border bg-card p-6">
+        <section className="rounded-xl border border-border bg-card p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="eyebrow">Activity trend</p>
@@ -280,27 +282,27 @@ export default function DashboardPage() {
                 <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorInvited" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#818cf8" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#818cf8" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="colorInterviewed" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#fb923c" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#fb923c" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--color-warning)" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="var(--color-warning)" stopOpacity={0}/>
                     </linearGradient>
                     <linearGradient id="colorShortlisted" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#34d399" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#34d399" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="var(--color-success)" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="var(--color-success)" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} dx={-10} />
-                  <RechartsTooltip 
-                    contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', backgroundColor: 'hsl(var(--card))', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }} dy={10} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-muted-foreground)' }} dx={-10} />
+                  <RechartsTooltip
+                    contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)', backgroundColor: 'var(--color-card)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                   />
-                  <Area type="monotone" dataKey="Invited" stroke="#818cf8" strokeWidth={2} fillOpacity={1} fill="url(#colorInvited)" />
-                  <Area type="monotone" dataKey="Interviewed" stroke="#fb923c" strokeWidth={2} fillOpacity={1} fill="url(#colorInterviewed)" />
-                  <Area type="monotone" dataKey="Shortlisted" stroke="#34d399" strokeWidth={2} fillOpacity={1} fill="url(#colorShortlisted)" />
+                  <Area type="monotone" dataKey="Invited" stroke="var(--color-primary)" strokeWidth={2} fillOpacity={1} fill="url(#colorInvited)" />
+                  <Area type="monotone" dataKey="Interviewed" stroke="var(--color-warning)" strokeWidth={2} fillOpacity={1} fill="url(#colorInterviewed)" />
+                  <Area type="monotone" dataKey="Shortlisted" stroke="var(--color-success)" strokeWidth={2} fillOpacity={1} fill="url(#colorShortlisted)" />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
@@ -309,7 +311,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-border bg-card p-6 h-full flex flex-col">
+        <section className="rounded-xl border border-border bg-card p-6 h-full flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="eyebrow">Distribution</p>
@@ -325,7 +327,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="h-2 w-2 rounded-full bg-primary" />
-                  {role.screened} screened <span className="ml-2 text-orange-500">{role.callbacks} callbacks</span>
+                  {role.screened} screened <span className="ml-2 text-warning-text">{role.callbacks} callbacks</span>
                 </div>
               </div>
             )) : (
@@ -335,7 +337,7 @@ export default function DashboardPage() {
         </section>
       </div>
 
-      <section className="rounded-2xl border border-border bg-card p-6">
+      <section className="rounded-xl border border-border bg-card p-6">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <p className="eyebrow">Role-wise detail</p>
@@ -363,10 +365,10 @@ export default function DashboardPage() {
                 return (
                   <tr key={role.job_id || 'unassigned'} className="border-b border-border/70 last:border-0 hover:bg-muted/30">
                     <td className="py-4 font-semibold text-primary">{role.role}</td>
-                    <td className="py-4">{role.candidates}</td>
-                    <td className="py-4">{role.screened}</td>
-                    <td className="py-4">{role.calls_completed}</td>
-                    <td className="py-4 text-orange-500">{role.callbacks}</td>
+                    <td className="py-4 font-mono">{role.candidates}</td>
+                    <td className="py-4 font-mono">{role.screened}</td>
+                    <td className="py-4 font-mono">{role.calls_completed}</td>
+                    <td className="py-4 font-mono text-warning-text">{role.callbacks}</td>
                   </tr>
                 );
               }) : (

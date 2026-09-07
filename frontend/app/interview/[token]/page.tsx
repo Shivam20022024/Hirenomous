@@ -313,8 +313,8 @@ export default function CandidateVideoInterviewPage() {
     return (
       <Centered>
         <div className="w-full max-w-md rounded-2xl border border-border bg-card p-8 text-center shadow-xl">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100">
-            <CheckCircle2 className="h-7 w-7 text-emerald-600" />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-success/15">
+            <CheckCircle2 className="h-7 w-7 text-success" />
           </div>
           <h1 className="text-xl font-bold text-foreground">Interview complete</h1>
           <p className="mt-2 text-sm text-muted-foreground">{completeMessage}</p>
@@ -570,7 +570,7 @@ function Check({ label, ok, bad }: { label: string; ok: boolean; bad?: boolean }
     <div className="flex items-center justify-between rounded-lg border border-border bg-background px-3 py-2">
       <span className="text-muted-foreground">{label}</span>
       {ok ? (
-        <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600"><CheckCircle2 size={14} /> Ready</span>
+        <span className="flex items-center gap-1 text-xs font-semibold text-success"><CheckCircle2 size={14} /> Ready</span>
       ) : bad ? (
         <span className="flex items-center gap-1 text-xs font-semibold text-destructive"><AlertCircle size={14} /> Not available</span>
       ) : (
@@ -584,7 +584,7 @@ function StatusPill({ on, onIcon, offIcon, label }: { on: boolean; onIcon: React
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
-        on ? 'bg-emerald-100 text-emerald-800' : 'bg-muted text-muted-foreground'
+        on ? 'bg-success/15 text-success' : 'bg-muted text-muted-foreground'
       }`}
       aria-live="polite"
     >

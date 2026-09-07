@@ -2,8 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, Mail, Phone, ExternalLink, Download, Clock, Trash2, X, FileText, Play, Eye, Loader2, ClipboardCheck, Check } from 'lucide-react';
+import { Search, Mail, Phone, Download, Clock, Trash2, X, FileText, Play, Eye, Loader2, ClipboardCheck, Check } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
+import { PageHeader } from '@/components/page-header';
+import { StatusPill } from '@/components/status-pill';
+import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
 
 export default function CandidatesPage() {
   const router = useRouter();
@@ -184,78 +202,58 @@ export default function CandidatesPage() {
     return matchesSearch && matchesStatus;
   });
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'shortlisted':
-      case 'interested':
-      case 'selected':
-      case 'hired':
-        return 'bg-emerald-100 text-emerald-800';
-      case 'rejected':
-      case 'not_interested':
-        return 'bg-destructive/10 text-destructive';
-      case 'pending':
-      case 'callback_required':
-        return 'bg-orange-100 text-orange-800';
-      case 'interview':
-      case 'interview_completed':
-        return 'bg-blue-100 text-blue-800';
-      default:
-        return 'bg-muted text-muted-foreground';
-    }
-  };
-
   if (loading) return <div className="p-12 text-center"><div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div></div>;
 
   return (
     <div className="mx-auto max-w-[1240px] space-y-6 px-5 py-9 lg:px-8 lg:py-14">
-      <div className="flex flex-wrap items-center justify-between gap-5">
-        <div className="flex flex-row items-baseline gap-4">
-          <h1 className="text-3xl font-bold tracking-[-0.06em] whitespace-nowrap">Candidates</h1>
-          <p className="text-sm text-muted-foreground whitespace-nowrap">View and manage all candidates across your organization.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex h-11 items-center gap-2 rounded-xl border-2 border-primary/30 bg-primary/5 px-3 text-sm text-foreground focus-within:border-primary">
-            <Search size={16} className="text-primary"/>
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search candidates" className="bg-transparent outline-none placeholder:text-muted-foreground"/>
-          </label>
-          <select value={jobId} onChange={e => setJobId(e.target.value)} className="h-11 rounded-xl border-2 border-primary/30 bg-primary/5 px-3 text-sm font-semibold text-primary outline-none">
-            <option value="">All Jobs</option>
-            {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
-          </select>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="h-11 rounded-xl border-2 border-primary/30 bg-primary/5 px-3 text-sm font-semibold text-primary outline-none">
-            <option value="">All Statuses</option>
-            <option value="SHORTLISTED">Shortlisted</option>
-            <option value="CALLING">Calling</option>
-            <option value="INTERESTED">Interested</option>
-            <option value="CALLBACK_REQUIRED">Callback Required</option>
-            <option value="NOT_INTERESTED">Not Interested</option>
-            <option value="INTERVIEW">AI Interview</option>
-            <option value="INTERVIEW_COMPLETED">Interview Completed</option>
-            <option value="SELECTED">Selected</option>
-            <option value="REJECTED">Rejected</option>
-            <option value="HIRED">Hired</option>
-          </select>
-          <button
-            onClick={handleBulkInvite}
-            disabled={actionLoading || !jobId}
-            title={!jobId ? 'Select a specific job first' : undefined}
-            className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border-2 border-primary/30 bg-primary/5 px-4 text-sm font-bold text-primary shadow-sm hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <ClipboardCheck size={16} className="mr-2" />} Invite to AI Interview
-          </button>
-          <button
-            onClick={handleSendEmail}
-            disabled={actionLoading || !jobId}
-            title={!jobId ? 'Select a specific job first' : undefined}
-            className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-sm font-semibold text-muted-foreground shadow-sm hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {actionLoading ? <Loader2 size={16} className="animate-spin mr-2"/> : <Mail size={16} className="mr-2" />} Email Interested
-          </button>
-          <button onClick={handleExport} className="whitespace-nowrap flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90">
-            <Download size={16} className="mr-2" /> Export
-          </button>
-        </div>
+      <PageHeader
+        eyebrow="Pipeline"
+        title="Candidates"
+        description="View and manage all candidates across your organization."
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground">
+          <Search size={16}/>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search candidates" className="bg-transparent outline-none placeholder:text-muted-foreground"/>
+        </label>
+        <Select value={jobId} onChange={e => setJobId(e.target.value)} className="h-11 w-auto min-w-[160px]">
+          <option value="">All Jobs</option>
+          {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
+        </Select>
+        <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="h-11 w-auto min-w-[160px]">
+          <option value="">All Statuses</option>
+          <option value="SHORTLISTED">Shortlisted</option>
+          <option value="CALLING">Calling</option>
+          <option value="INTERESTED">Interested</option>
+          <option value="CALLBACK_REQUIRED">Callback Required</option>
+          <option value="NOT_INTERESTED">Not Interested</option>
+          <option value="INTERVIEW">AI Interview</option>
+          <option value="INTERVIEW_COMPLETED">Interview Completed</option>
+          <option value="SELECTED">Selected</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="HIRED">Hired</option>
+        </Select>
+        <Button
+          size="lg"
+          onClick={handleBulkInvite}
+          disabled={actionLoading || !jobId}
+          title={!jobId ? 'Select a specific job first' : undefined}
+        >
+          {actionLoading ? <Loader2 size={16} className="animate-spin"/> : <ClipboardCheck size={16} />} Invite to AI Interview
+        </Button>
+        <Button
+          variant="outline"
+          size="lg"
+          onClick={handleSendEmail}
+          disabled={actionLoading || !jobId}
+          title={!jobId ? 'Select a specific job first' : undefined}
+        >
+          {actionLoading ? <Loader2 size={16} className="animate-spin"/> : <Mail size={16} />} Email Interested
+        </Button>
+        <Button variant="secondary" size="lg" onClick={handleExport}>
+          <Download size={16} /> Export
+        </Button>
       </div>
 
       {!jobId && (
@@ -264,217 +262,187 @@ export default function CandidatesPage() {
         </p>
       )}
 
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b-2 border-primary/30 bg-primary/10 text-xs font-bold uppercase tracking-wider text-primary">
-              <tr>
-                <th className="px-6 py-4">Candidate</th>
-                <th className="px-6 py-4">Role</th>
-                <th className="px-6 py-4">Score</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Contact</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {filteredCandidates.length > 0 ? filteredCandidates.map(candidate => (
-                <tr 
-                  key={candidate.candidate_id} 
-                  className="hover:bg-muted/30 cursor-pointer transition-colors"
-                  onClick={() => setSelectedCandidate(candidate)}
-                >
-                  <td className="px-6 py-4">
-                    <div className="font-medium text-foreground">{candidate.name || 'Unknown'}</div>
-                    <div className="text-xs text-muted-foreground max-w-[200px] truncate">{candidate.summary || 'No summary'}</div>
-                  </td>
-                  <td className="px-6 py-4 text-muted-foreground">{candidate.role || 'Unassigned'}</td>
-                  <td className="px-6 py-4">
-                    <span className="font-semibold">{candidate.score || 0}%</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${getStatusColor(candidate.status)}`}>
-                      {candidate.status || 'uploaded'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                      {candidate.email && <span className="flex items-center gap-1"><Mail size={12}/>{candidate.email}</span>}
-                      {candidate.phone && <span className="flex items-center gap-1"><Phone size={12}/>{candidate.phone}</span>}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-muted-foreground">
-                    {candidate.created_at ? new Date(candidate.created_at).toLocaleDateString() : 'N/A'}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {candidate.status?.toUpperCase() === 'CALLBACK_REQUIRED' && (
-                        <button 
-                          onClick={(e) => handleCallSingle(e, candidate.candidate_id)}
-                          disabled={actionLoading}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
-                          title="Call Now"
-                        >
-                          <Phone size={16} />
-                        </button>
-                      )}
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                        title="View Details"
-                      >
-                        <Eye size={16} />
-                      </button>
-                      <button 
-                        onClick={(e) => handleDelete(e, candidate.candidate_id)}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                        title="Delete Candidate"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">
-                    No candidates found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {selectedCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4 sm:p-6" onClick={() => setSelectedCandidate(null)}>
-          <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/90 px-6 py-4 backdrop-blur">
-              <h2 className="text-xl font-bold tracking-tight">Candidate Details</h2>
-              <button onClick={() => setSelectedCandidate(null)} className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                <X size={20} />
-              </button>
-            </div>
-            
-            <div className="p-6 space-y-6">
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-2xl font-bold">{selectedCandidate.name || 'Unknown'}</h3>
-                  <p className="text-muted-foreground">{selectedCandidate.role || 'Unassigned Role'}</p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Candidate</TableHead>
+            <TableHead>Role</TableHead>
+            <TableHead>Score</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Contact</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead className="text-right">Action</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filteredCandidates.length > 0 ? filteredCandidates.map(candidate => (
+            <TableRow
+              key={candidate.candidate_id}
+              className="cursor-pointer"
+              onClick={() => setSelectedCandidate(candidate)}
+            >
+              <TableCell>
+                <div className="font-medium text-foreground">{candidate.name || 'Unknown'}</div>
+                <div className="text-xs text-muted-foreground max-w-[200px] truncate">{candidate.summary || 'No summary'}</div>
+              </TableCell>
+              <TableCell className="text-muted-foreground">{candidate.role || 'Unassigned'}</TableCell>
+              <TableCell>
+                <span className="font-mono font-semibold">{candidate.score || 0}%</span>
+              </TableCell>
+              <TableCell>
+                <StatusPill domain="candidate" status={candidate.status?.toLowerCase() || 'uploaded'} label={candidate.status || 'uploaded'} />
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  {candidate.email && <span className="flex items-center gap-1"><Mail size={12}/>{candidate.email}</span>}
+                  {candidate.phone && <span className="flex items-center gap-1"><Phone size={12}/>{candidate.phone}</span>}
                 </div>
-                <div className="flex gap-2">
-                  <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${getStatusColor(selectedCandidate.status)}`}>
-                    {selectedCandidate.status || 'uploaded'}
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-                    Score: {selectedCandidate.score || 0}%
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl bg-muted/50 p-4 text-sm">
-                {selectedCandidate.email && (
-                  <div className="flex items-center gap-2"><Mail size={14} className="text-muted-foreground"/> {selectedCandidate.email}</div>
-                )}
-                {selectedCandidate.phone && (
-                  <div className="flex items-center gap-2"><Phone size={14} className="text-muted-foreground"/> {selectedCandidate.phone}</div>
-                )}
-                {selectedCandidate.created_at && (
-                  <div className="flex items-center gap-2"><Clock size={14} className="text-muted-foreground"/> {new Date(selectedCandidate.created_at).toLocaleString()}</div>
-                )}
-              </div>
-
-              {/* AI Interview actions — mirror the hiring flow: invite (interested) -> view (in progress) -> report + decide (completed) */}
-              {(['interested', 'interview', 'interview_completed'].includes(String(selectedCandidate.status).toLowerCase()) || selectedCandidate.latest_interview_id) && (
-                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                  <ClipboardCheck size={16} className="text-primary" />
-                  <span className="text-sm font-semibold text-foreground mr-1">AI Interview</span>
-
-                  {String(selectedCandidate.status).toLowerCase() === 'interested' && !selectedCandidate.latest_interview_id && (
+              </TableCell>
+              <TableCell className="text-xs text-muted-foreground">
+                {candidate.created_at ? new Date(candidate.created_at).toLocaleDateString() : 'N/A'}
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex items-center justify-end gap-2">
+                  {candidate.status?.toUpperCase() === 'CALLBACK_REQUIRED' && (
                     <button
-                      onClick={() => handleInviteInterview(selectedCandidate)}
+                      onClick={(e) => handleCallSingle(e, candidate.candidate_id)}
                       disabled={actionLoading}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-primary transition-colors hover:bg-primary/10 disabled:opacity-50"
+                      title="Call Now"
                     >
-                      {actionLoading ? <Loader2 size={13} className="animate-spin" /> : <ClipboardCheck size={13} />} Invite to AI Interview
+                      <Phone size={16} />
                     </button>
                   )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                    title="View Details"
+                  >
+                    <Eye size={16} />
+                  </button>
+                  <button
+                    onClick={(e) => handleDelete(e, candidate.candidate_id)}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    title="Delete Candidate"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </TableCell>
+            </TableRow>
+          )) : (
+            <TableRow>
+              <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                No candidates found.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
 
-                  {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview' && (
-                    <button
-                      onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-semibold hover:bg-muted"
-                    >
-                      <Eye size={13} /> View Interview
-                    </button>
+      <Dialog open={!!selectedCandidate} onOpenChange={(open) => !open && setSelectedCandidate(null)}>
+        <DialogContent className="max-w-3xl">
+          {selectedCandidate && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Candidate Details</DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-2xl font-bold text-foreground">{selectedCandidate.name || 'Unknown'}</h3>
+                    <p className="text-muted-foreground">{selectedCandidate.role || 'Unassigned Role'}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <StatusPill domain="candidate" status={selectedCandidate.status?.toLowerCase() || 'uploaded'} label={selectedCandidate.status || 'uploaded'} />
+                    <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                      Score: {selectedCandidate.score || 0}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl bg-muted/50 p-4 text-sm">
+                  {selectedCandidate.email && (
+                    <div className="flex items-center gap-2"><Mail size={14} className="text-muted-foreground"/> {selectedCandidate.email}</div>
                   )}
+                  {selectedCandidate.phone && (
+                    <div className="flex items-center gap-2"><Phone size={14} className="text-muted-foreground"/> {selectedCandidate.phone}</div>
+                  )}
+                  {selectedCandidate.created_at && (
+                    <div className="flex items-center gap-2"><Clock size={14} className="text-muted-foreground"/> {new Date(selectedCandidate.created_at).toLocaleString()}</div>
+                  )}
+                </div>
 
-                  {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview_completed' && (
-                    <>
-                      <button
-                        onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-semibold hover:bg-muted"
-                      >
+                {/* AI Interview actions — mirror the hiring flow: invite (interested) -> view (in progress) -> report + decide (completed) */}
+                {(['interested', 'interview', 'interview_completed'].includes(String(selectedCandidate.status).toLowerCase()) || selectedCandidate.latest_interview_id) && (
+                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                    <ClipboardCheck size={16} className="text-primary" />
+                    <span className="text-sm font-semibold text-foreground mr-1">AI Interview</span>
+
+                    {String(selectedCandidate.status).toLowerCase() === 'interested' && !selectedCandidate.latest_interview_id && (
+                      <Button size="sm" onClick={() => handleInviteInterview(selectedCandidate)} disabled={actionLoading}>
+                        {actionLoading ? <Loader2 size={13} className="animate-spin" /> : <ClipboardCheck size={13} />} Invite to AI Interview
+                      </Button>
+                    )}
+
+                    {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview' && (
+                      <Button size="sm" variant="outline" onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}>
+                        <Eye size={13} /> View Interview
+                      </Button>
+                    )}
+
+                    {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview_completed' && (
+                      <>
+                        <Button size="sm" variant="outline" onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}>
+                          <FileText size={13} /> View AI Report
+                        </Button>
+                        <Button size="sm" variant="success" onClick={() => handleInterviewDecision(selectedCandidate, 'select')} disabled={actionLoading}>
+                          <Check size={13} /> Select Candidate
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => handleInterviewDecision(selectedCandidate, 'reject')} disabled={actionLoading}>
+                          <X size={13} /> Reject Candidate
+                        </Button>
+                      </>
+                    )}
+
+                    {['selected', 'rejected'].includes(String(selectedCandidate.status).toLowerCase()) && selectedCandidate.latest_interview_id && (
+                      <Button size="sm" variant="outline" onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}>
                         <FileText size={13} /> View AI Report
-                      </button>
-                      <button
-                        onClick={() => handleInterviewDecision(selectedCandidate, 'select')}
-                        disabled={actionLoading}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                      >
-                        <Check size={13} /> Select Candidate
-                      </button>
-                      <button
-                        onClick={() => handleInterviewDecision(selectedCandidate, 'reject')}
-                        disabled={actionLoading}
-                        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3 text-xs font-semibold text-destructive hover:bg-destructive/20 disabled:opacity-50"
-                      >
-                        <X size={13} /> Reject Candidate
-                      </button>
-                    </>
-                  )}
-
-                  {['selected', 'rejected'].includes(String(selectedCandidate.status).toLowerCase()) && selectedCandidate.latest_interview_id && (
-                    <button
-                      onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-xs font-semibold hover:bg-muted"
-                    >
-                      <FileText size={13} /> View AI Report
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {selectedCandidate.summary && (
-                <div>
-                  <h4 className="mb-2 font-semibold flex items-center gap-2"><FileText size={16}/> Summary</h4>
-                  <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground leading-relaxed">
-                    {selectedCandidate.summary}
+                      </Button>
+                    )}
                   </div>
-                </div>
-              )}
+                )}
 
-              {selectedCandidate.transcript && (
-                <div>
-                  <h4 className="mb-2 font-semibold">AI Conversation Transcript</h4>
-                  <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground whitespace-pre-wrap font-mono h-64 overflow-y-auto">
-                    {selectedCandidate.transcript}
+                {selectedCandidate.summary && (
+                  <div>
+                    <h4 className="mb-2 font-semibold text-foreground flex items-center gap-2"><FileText size={16}/> Summary</h4>
+                    <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground leading-relaxed">
+                      {selectedCandidate.summary}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {selectedCandidate.recording_url && (
-                <div>
-                  <h4 className="mb-2 font-semibold flex items-center gap-2"><Play size={16}/> Recording</h4>
-                  <audio controls src={selectedCandidate.recording_url} className="w-full mt-2" />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+                {selectedCandidate.transcript && (
+                  <div>
+                    <h4 className="mb-2 font-semibold text-foreground">AI Conversation Transcript</h4>
+                    <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground whitespace-pre-wrap font-mono h-64 overflow-y-auto">
+                      {selectedCandidate.transcript}
+                    </div>
+                  </div>
+                )}
+
+                {selectedCandidate.recording_url && (
+                  <div>
+                    <h4 className="mb-2 font-semibold text-foreground flex items-center gap-2"><Play size={16}/> Recording</h4>
+                    <audio controls src={selectedCandidate.recording_url} className="w-full mt-2" />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
