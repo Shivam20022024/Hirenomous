@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     INTERVIEW_TTS_VOICE: str = "alloy"
     # Interview integrity / proctoring analysis (advisory flags on the report).
     INTERVIEW_INTEGRITY_ENABLED: bool = True
+    # Ask the candidate to confirm the email they were shortlisted with before starting.
+    INTERVIEW_REQUIRE_EMAIL_VERIFY: bool = True
+    INTERVIEW_MAX_VERIFY_ATTEMPTS: int = 6
     # Optional dedicated secret for hashing interview tokens; falls back to SECRET_KEY env if unset.
     INTERVIEW_TOKEN_SECRET: Optional[str] = None
     # Local media store for interview video/audio recordings (swap for object storage in prod).

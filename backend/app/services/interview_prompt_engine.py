@@ -21,6 +21,14 @@ logger = logging.getLogger(__name__)
 
 _MODEL = "gpt-4o-mini"
 
+# Every interview opens with the same warm-up question, for every candidate.
+# The resume/job-specific questions follow it.
+INTRO_QUESTION = {
+    "text": "To begin, tell me a bit about yourself — your background and the experience most relevant to this role.",
+    "question_type": "introduction",
+    "target_skills": [],
+}
+
 # Applied to every interview / evaluation prompt.
 FAIRNESS_RULES = (
     "Evaluate ONLY job-relevant professional competencies (technical knowledge, problem solving, "
@@ -114,8 +122,7 @@ def _fallback_question_plan(job: Optional[dict], count: int) -> List[Dict[str, A
     title = (job or {}).get("title") or "this role"
     skills = ((job or {}).get("skills") or [])[:4]
     base = [
-        {"text": f"To start, tell me about your background and experience relevant to {title}.",
-         "question_type": "introduction", "target_skills": []},
+        dict(INTRO_QUESTION),
         {"text": "Walk me through a recent project you are proud of and your specific contribution.",
          "question_type": "resume_specific", "target_skills": []},
         {"text": f"What are the key technical skills required for {title}, and how do you rate yourself on them?",
@@ -136,13 +143,15 @@ def _fallback_question_plan(job: Optional[dict], count: int) -> List[Dict[str, A
 
 async def generate_question_plan(job: Optional[dict], candidate: dict, count: int) -> List[Dict[str, Any]]:
     count = max(3, min(count, 15))
+    # Question 1 is always the fixed "tell me about yourself"; the LLM fills the rest.
+    remaining = count - 1
     system = (
         "You are an experienced technical interviewer designing a structured, job-specific interview. "
         + FAIRNESS_RULES
         + " Questions must be answerable verbally in 1-3 minutes each. Do NOT ask for code to be written."
     )
     user = f"""
-Design an interview plan of exactly {count} questions for this candidate and job.
+Design {remaining} interview questions for this candidate and job.
 
 JOB
 {job_context(job)}
@@ -151,13 +160,14 @@ CANDIDATE (resume, PII removed)
 {safe_resume_context(candidate)}
 
 Requirements:
-- Question 1: introduction / experience overview.
+- Do NOT include a generic "tell me about yourself" / introduction question — that is
+  asked separately as question 1. Your first question should already be substantive.
 - Include role-specific technical questions grounded in the REQUIRED SKILLS above.
 - Include at least one question that references the candidate's actual resume skills/experience.
 - Include a problem-solving question and a practical scenario question.
 - Include one communication / behavioural question if appropriate.
 - Last question: a natural closing question.
-- Vary question_type across: introduction, technical, resume_specific, problem_solving, scenario, behavioral, closing.
+- Vary question_type across: technical, resume_specific, problem_solving, scenario, behavioral, closing.
 
 Return STRICT JSON:
 {{
@@ -169,8 +179,8 @@ Return STRICT JSON:
     try:
         data = await _chat_json(system, user, temperature=0.4)
         raw = data.get("questions") or []
-        plan = []
-        for q in raw[:count]:
+        plan: List[Dict[str, Any]] = [dict(INTRO_QUESTION)]
+        for q in raw[:remaining]:
             text = str(q.get("text", "")).strip()
             if not text:
                 continue

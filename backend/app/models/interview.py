@@ -82,6 +82,10 @@ class Interview(BaseModel):
     completed_at: Optional[datetime] = None
     duration_seconds: Optional[int] = None
 
+    # Candidate confirms the email they were shortlisted with before the interview starts.
+    email_verified: bool = False
+    verification_attempts: int = 0
+
     question_plan: List[InterviewQuestion] = []
     answers: List[InterviewAnswer] = []
     transcript: List[Dict[str, Any]] = []      # [{role: "ai"|"candidate", text, ts}]
@@ -135,3 +139,8 @@ class InterviewTurnRequest(BaseModel):
     """Used when the candidate submits a typed answer (audio uses multipart form)."""
     answer_text: str
     turn_seq: Optional[int] = None
+
+
+class VerifyEmailRequest(BaseModel):
+    """Candidate confirms the email they were shortlisted with before starting."""
+    email: str

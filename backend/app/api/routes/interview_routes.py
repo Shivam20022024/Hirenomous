@@ -13,7 +13,9 @@ from fastapi.responses import FileResponse
 
 from app.api.deps import get_context_organization_id, get_current_active_user
 from app.core.interview_auth import resolve_interview_by_token
-from app.models.interview import CreateInterviewRequest, RecruiterDecisionRequest, BulkInviteRequest
+from app.models.interview import (
+    CreateInterviewRequest, RecruiterDecisionRequest, BulkInviteRequest, VerifyEmailRequest,
+)
 from app.models.user import UserInDB
 from app.services.interview_service import InterviewService
 
@@ -155,6 +157,16 @@ def _client_ip(request: Request) -> Optional[str]:
 @candidate_router.get("/{token}")
 async def session_info(token: str = Path(..., min_length=20)):
     return await InterviewService.session_info(token)
+
+
+@candidate_router.post("/{token}/verify")
+async def verify_email(
+    request: Request,
+    body: VerifyEmailRequest,
+    token: str = Path(..., min_length=20),
+):
+    """Candidate confirms the email they were shortlisted with, before the interview starts."""
+    return await InterviewService.verify_email(token, body.email, client_ip=_client_ip(request))
 
 
 @candidate_router.post("/{token}/start")

@@ -41,6 +41,13 @@ export const interviewApi = {
   getSession: (token: string) =>
     request(`/interview-session/${encodeURIComponent(token)}`),
 
+  verifyEmail: (token: string, email: string) =>
+    request(`/interview-session/${encodeURIComponent(token)}/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }),
+
   start: (token: string) =>
     request(`/interview-session/${encodeURIComponent(token)}/start`, { method: 'POST' }),
 

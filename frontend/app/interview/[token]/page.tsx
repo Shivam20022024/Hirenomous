@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { interviewApi } from '@/lib/interview-api';
 
-type Phase = 'loading' | 'error' | 'complete' | 'device-check' | 'interview';
+type Phase = 'loading' | 'error' | 'complete' | 'verify' | 'device-check' | 'interview';
 type MediaState = 'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable' | 'unsupported';
 
 interface SessionInfo {
@@ -20,6 +20,8 @@ interface SessionInfo {
   answered_questions?: number;
   in_progress?: boolean;
   already_completed: boolean;
+  requires_email_verification?: boolean;
+  email_verified?: boolean;
   assesses: string[];
 }
 interface QuestionPayload {
@@ -62,6 +64,9 @@ export default function CandidateVideoInterviewPage() {
   const [useTextFallback, setUseTextFallback] = useState(false);
   const [textAnswer, setTextAnswer] = useState('');
   const [completeMessage, setCompleteMessage] = useState('');
+  const [emailInput, setEmailInput] = useState('');
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyError, setVerifyError] = useState('');
 
   const streamRef = useRef<MediaStream | null>(null);
   const videoElRef = useRef<HTMLVideoElement | null>(null);
@@ -107,6 +112,8 @@ export default function CandidateVideoInterviewPage() {
         if (info.already_completed || info.status === 'completed') {
           setCompleteMessage('This interview has already been completed. Thank you.');
           setPhase('complete');
+        } else if (info.requires_email_verification && !info.email_verified) {
+          setPhase('verify');
         } else {
           setPhase('device-check');
         }
@@ -222,6 +229,22 @@ export default function CandidateVideoInterviewPage() {
   }, [token]);
 
   const replayAudio = () => { if (question?.audio_file) playQuestionAudio(question); };
+
+  // ---- email verification gate ----
+  const verifyEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!emailInput.trim()) return;
+    setVerifyBusy(true);
+    setVerifyError('');
+    try {
+      await interviewApi.verifyEmail(token, emailInput.trim());
+      setPhase('device-check');
+    } catch (err: any) {
+      setVerifyError(err?.message || 'Could not verify that email. Please try again.');
+    } finally {
+      setVerifyBusy(false);
+    }
+  };
 
   // ---- start / resume ----
   const startInterview = async () => {
@@ -383,6 +406,39 @@ export default function CandidateVideoInterviewPage() {
           <p className="mt-2 text-sm text-muted-foreground">{completeMessage}</p>
           <p className="mt-4 text-xs text-muted-foreground">The hiring team will review your responses. You can close this tab.</p>
         </div>
+      </Centered>
+    );
+  }
+
+  if (phase === 'verify') {
+    return (
+      <Centered>
+        <form onSubmit={verifyEmail} className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-xl">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-primary">AI Video Interview</p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight text-foreground">{session?.job_title}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Hi {session?.candidate_first_name}, confirm the email address you applied with to begin your interview.
+          </p>
+          <label htmlFor="verify-email" className="mt-6 block text-sm font-semibold text-foreground">Email address</label>
+          <input
+            id="verify-email" type="email" autoComplete="email" required autoFocus
+            value={emailInput}
+            onChange={(e) => setEmailInput(e.target.value)}
+            placeholder="you@example.com"
+            className="mt-2 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
+          />
+          {verifyError && <p className="mt-3 text-xs font-medium text-destructive">{verifyError}</p>}
+          <button
+            type="submit"
+            disabled={verifyBusy || !emailInput.trim()}
+            className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 hover:opacity-90 disabled:opacity-50"
+          >
+            {verifyBusy ? <><Loader2 className="h-4 w-4 animate-spin" /> Verifying…</> : 'Continue'}
+          </button>
+          <p className="mt-4 text-[11px] text-muted-foreground">
+            Use the same email address the recruiter sent this invitation to. This link is personal to you.
+          </p>
+        </form>
       </Centered>
     );
   }

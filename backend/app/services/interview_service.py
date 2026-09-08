@@ -626,11 +626,12 @@ class InterviewService:
     async def session_info(token: str) -> dict:
         interview = await resolve_interview_by_token(token)
         db = get_db()
-        candidate = await db.candidates.find_one({"id": interview["candidate_id"]}, {"_id": 0, "name": 1})
+        candidate = await db.candidates.find_one({"id": interview["candidate_id"]}, {"_id": 0, "name": 1, "email": 1})
         first_name = ((candidate or {}).get("name") or "there").split(" ")[0]
         job_title = (interview.get("snapshot") or {}).get("job_title") or "the role"
         plan = interview.get("question_plan") or []
         answered = _answered_count(interview)
+        needs_verify = InterviewService._needs_email_verify(interview, candidate)
         return {
             "candidate_first_name": first_name,
             "job_title": job_title,
@@ -640,14 +641,89 @@ class InterviewService:
             "answered_questions": answered,
             "in_progress": interview.get("status") == "in_progress",
             "already_completed": interview.get("status") == "completed",
+            "requires_email_verification": needs_verify,
+            "email_verified": bool(interview.get("email_verified")),
             "assesses": ["Technical knowledge", "Problem solving", "Role-specific skills", "Communication"],
         }
+
+    @staticmethod
+    def _needs_email_verify(interview: dict, candidate: Optional[dict]) -> bool:
+        """Verification applies only when enabled, the interview hasn't started yet,
+        and we actually have an email on file to check against."""
+        if not settings.INTERVIEW_REQUIRE_EMAIL_VERIFY:
+            return False
+        if interview.get("email_verified"):
+            return False
+        if interview.get("status") == "in_progress" or interview.get("started_at"):
+            return False
+        return bool((candidate or {}).get("email"))
+
+    @staticmethod
+    async def verify_email(token: str, email: str, *, client_ip: Optional[str] = None) -> dict:
+        """Candidate confirms the email address they were shortlisted with, before the
+        interview can start. Token still does the real auth — this is a light identity
+        check that also makes a shared link a little less useful."""
+        interview = await resolve_interview_by_token(token)
+        if interview.get("status") in ("completed", "cancelled", "expired", "failed"):
+            raise HTTPException(status_code=410, detail=f"This interview is {interview['status']}.")
+        db = get_db()
+
+        if interview.get("email_verified"):
+            return {"verified": True, "attempts_left": None}
+
+        candidate = await db.candidates.find_one({"id": interview["candidate_id"]}, {"_id": 0, "email": 1})
+        on_file = (candidate or {}).get("email")
+        if not on_file:
+            # Nothing to check against — let them through.
+            await db.interviews.update_one({"id": interview["id"]}, {"$set": {"email_verified": True}})
+            return {"verified": True, "attempts_left": None}
+
+        attempts = int(interview.get("verification_attempts") or 0)
+        if attempts >= settings.INTERVIEW_MAX_VERIFY_ATTEMPTS:
+            raise HTTPException(status_code=429, detail="Too many incorrect attempts. Contact the recruiter who sent your link.")
+
+        supplied = (email or "").strip().lower()
+        if supplied and supplied == str(on_file).strip().lower():
+            await db.interviews.update_one(
+                {"id": interview["id"]},
+                {"$set": {"email_verified": True, "updated_at": datetime.utcnow()}},
+            )
+            await AuditService.record(
+                organization_id=interview["organization_id"], event_type="interview_email_verified",
+                actor_type="candidate", candidate_id=interview["candidate_id"], job_id=interview.get("job_id"),
+                interview_id=interview["id"], payload={"ip": client_ip},
+            )
+            return {"verified": True, "attempts_left": None}
+
+        attempts += 1
+        await db.interviews.update_one(
+            {"id": interview["id"]},
+            {"$set": {"verification_attempts": attempts, "updated_at": datetime.utcnow()}},
+        )
+        await AuditService.record(
+            organization_id=interview["organization_id"], event_type="interview_email_verify_failed",
+            actor_type="candidate", candidate_id=interview["candidate_id"], job_id=interview.get("job_id"),
+            interview_id=interview["id"], payload={"attempt": attempts, "ip": client_ip},
+        )
+        left = max(0, settings.INTERVIEW_MAX_VERIFY_ATTEMPTS - attempts)
+        raise HTTPException(
+            status_code=403,
+            detail=f"That email doesn't match our records. {left} attempt(s) left." if left
+            else "That email doesn't match our records. Contact the recruiter who sent your link.",
+        )
 
     @staticmethod
     async def start_session(token: str, *, client_ip: Optional[str] = None, client_ua: Optional[str] = None) -> dict:
         interview = await resolve_interview_by_token(token, require_active=True)
         db = get_db()
         await _record_session_meta(db, interview["id"], client_ip, client_ua, "start")
+
+        # Email confirmation gates only the FIRST start (see _needs_email_verify) —
+        # a candidate already mid-interview is never stranded by it.
+        if settings.INTERVIEW_REQUIRE_EMAIL_VERIFY and not interview.get("email_verified"):
+            candidate = await db.candidates.find_one({"id": interview["candidate_id"]}, {"_id": 0, "email": 1})
+            if InterviewService._needs_email_verify(interview, candidate):
+                raise HTTPException(status_code=403, detail="Please confirm your email address before starting.")
 
         if interview.get("status") == "in_progress" and (interview.get("progress") or {}).get("pending_question"):
             # Idempotent resume: re-serve the current question.
@@ -963,7 +1039,7 @@ class InterviewService:
             interview = await db.interviews.find_one(
                 {"id": interview_id},
                 {"_id": 0, "id": 1, "answers": 1, "transcript": 1, "session_meta": 1,
-                 "organization_id": 1, "candidate_id": 1, "job_id": 1},
+                 "verification_attempts": 1, "organization_id": 1, "candidate_id": 1, "job_id": 1},
             )
             if not interview:
                 return None

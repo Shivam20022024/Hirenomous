@@ -67,6 +67,15 @@ async def analyze(interview: dict, *, run_llm: bool = True) -> Dict[str, Any]:
             f"{len(uas)} distinct browser signatures were used on this interview link.",
         ))
 
+    verify_fails = int(interview.get("verification_attempts") or 0)
+    if verify_fails >= 2:
+        flags.append(_flag(
+            "email_verify_failed", "medium" if verify_fails < 4 else "high",
+            "Failed the email check before starting",
+            f"The email confirmation was entered incorrectly {verify_fails} time(s) before the interview started "
+            "— the person taking it may not be the shortlisted candidate.",
+        ))
+
     # ------------------------------------------------------------------
     # 2. Client telemetry (browser, best-effort)
     # ------------------------------------------------------------------
@@ -153,6 +162,7 @@ async def analyze(interview: dict, *, run_llm: bool = True) -> Dict[str, Any]:
         "signals": {
             "distinct_ips": ips,
             "distinct_devices": len(uas),
+            "email_verify_failures": verify_fails,
             "focus_lost_count": focus_events,
             "focus_lost_ms": focus_ms,
             "paste_count": pastes,
