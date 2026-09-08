@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Check, X, HelpCircle, FileText, RefreshCw, MessageSquare, Video, Play, TrendingUp, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, X, HelpCircle, FileText, RefreshCw, MessageSquare, Video, Play, TrendingUp, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
 import { fetchApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -14,6 +14,14 @@ const scoreColor = (v: number) =>
   v >= 80 ? 'text-success' : v >= 60 ? 'text-primary' : v >= 40 ? 'text-warning-text' : 'text-destructive';
 const barColor = (v: number) =>
   v >= 80 ? 'bg-success' : v >= 60 ? 'bg-primary' : v >= 40 ? 'bg-warning' : 'bg-destructive';
+
+const INTEGRITY: Record<string, { label: string; badge: string; icon: typeof ShieldCheck }> = {
+  clean: { label: 'Clean', badge: 'bg-success/15 text-success', icon: ShieldCheck },
+  review: { label: 'Review', badge: 'bg-warning/20 text-warning-text', icon: ShieldAlert },
+  high_risk: { label: 'High risk', badge: 'bg-destructive/15 text-destructive', icon: ShieldAlert },
+};
+const sevDot = (s: string) =>
+  s === 'high' ? 'bg-destructive' : s === 'medium' ? 'bg-warning' : 'bg-muted-foreground';
 
 const REC_LABEL: Record<string, string> = {
   strong_match: 'STRONG MATCH',
@@ -44,6 +52,7 @@ export default function InterviewReportPage() {
   const [showTranscript, setShowTranscript] = useState(false);
   const [recording, setRecording] = useState<{ url: string; title: string } | null>(null);
   const [recLoading, setRecLoading] = useState<number | null>(null);
+  const [integBusy, setIntegBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -106,6 +115,18 @@ export default function InterviewReportPage() {
     }
   };
 
+  const rerunIntegrity = async () => {
+    setIntegBusy(true);
+    try {
+      await fetchApi(`/interviews/${id}/integrity`, { method: 'POST' });
+      await load();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIntegBusy(false);
+    }
+  };
+
   const decide = async (decision: 'select' | 'reject' | 'needs_review') => {
     const labels: Record<string, string> = { select: 'select', reject: 'reject', needs_review: 'mark for human review' };
     if (!confirm(`Are you sure you want to ${labels[decision]} this candidate?`)) return;
@@ -146,6 +167,7 @@ export default function InterviewReportPage() {
   const overall = scores.overall;
   const rec = report.recommendation;
   const aiReport = report.ai_report || {};
+  const integrity = report.integrity || {};
   const evaluated = report.evaluation_status === 'evaluated' || report.evaluation_status === 'needs_review';
   const decided = report.recruiter_decision;
 
@@ -273,6 +295,50 @@ export default function InterviewReportPage() {
               </p>
             </div>
           )}
+
+          {/* Interview integrity — advisory proctoring flags */}
+          {integrity.level && (() => {
+            const meta = INTEGRITY[integrity.level] || INTEGRITY.review;
+            const Icon = meta.icon;
+            const flags: any[] = integrity.flags || [];
+            return (
+              <div className="rounded-xl border border-border bg-card p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
+                    <Icon size={17} /> Interview Integrity
+                  </h3>
+                  <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${meta.badge}`}>
+                    {meta.label}
+                  </span>
+                </div>
+                {flags.length === 0 ? (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    No integrity concerns from the available signals (session, tab activity, and answer analysis).
+                  </p>
+                ) : (
+                  <ul className="mt-4 space-y-3">
+                    {flags.map((f, i) => (
+                      <li key={i} className="flex gap-3">
+                        <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${sevDot(f.severity)}`} />
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{f.title}</p>
+                          <p className="text-sm text-muted-foreground">{f.detail}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <Button size="sm" variant="outline" onClick={rerunIntegrity} disabled={integBusy}>
+                    {integBusy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />} Re-run check
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Advisory signals, not proof. Review the recording and transcript before acting.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* No recordings on disk (never captured, or purged) — tell the recruiter */}
           {report.status === 'completed'

@@ -44,6 +44,14 @@ class InterviewAnswer(BaseModel):
     duration_seconds: Optional[int] = None
     answered_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Integrity signals from the browser (best-effort telemetry; never trusted alone)
+    typed_only: bool = False
+    focus_lost_count: Optional[int] = None      # times the candidate left the tab while answering
+    focus_lost_ms: Optional[int] = None         # total ms away from the tab during this answer
+    paste_count: Optional[int] = None
+    fullscreen_exits: Optional[int] = None
+    time_to_first_answer_ms: Optional[int] = None
+
 
 class InterviewScores(BaseModel):
     overall: Optional[float] = None
@@ -87,6 +95,12 @@ class Interview(BaseModel):
     recruiter_feedback: Optional[str] = None
     recruiter_id: Optional[str] = None
     decided_at: Optional[datetime] = None
+
+    # Session provenance for integrity checks: [{ip, ua, at, event}] (kept small).
+    session_meta: List[Dict[str, Any]] = []
+    # Integrity / proctoring analysis (advisory — recruiter decides, like the AI recommendation).
+    # {score, level: clean|review|high_risk, flags: [{code, severity, title, detail}], signals, analyzed_at}
+    integrity: Dict[str, Any] = {}
 
     # Immutable snapshot of everything the evaluation depended on.
     snapshot: Dict[str, Any] = {}

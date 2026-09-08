@@ -75,6 +75,28 @@ export default function CandidateVideoInterviewPage() {
   const timerRef = useRef<any>(null);
   const aiAudioRef = useRef<HTMLAudioElement | null>(null);
 
+  // ---- integrity telemetry (accumulated per question, best-effort) ----
+  const focusLost = useRef(0);
+  const focusLostMs = useRef(0);
+  const pasteCount = useRef(0);
+  const fsExits = useRef(0);
+  const blurStart = useRef<number | null>(null);
+  const answerReadyAt = useRef<number>(0);
+  const firstInteractionAt = useRef<number | null>(null);
+
+  const resetSignals = useCallback(() => {
+    focusLost.current = 0;
+    focusLostMs.current = 0;
+    pasteCount.current = 0;
+    fsExits.current = 0;
+    blurStart.current = null;
+    firstInteractionAt.current = null;
+    answerReadyAt.current = Date.now();
+  }, []);
+  const markFirstInteraction = () => {
+    if (firstInteractionAt.current == null) firstInteractionAt.current = Date.now();
+  };
+
   // ---- load session ----
   useEffect(() => {
     if (!token) return;
@@ -103,6 +125,35 @@ export default function CandidateVideoInterviewPage() {
     window.addEventListener('offline', off);
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
+
+  // Integrity telemetry: track leaving the tab / pasting / exiting fullscreen
+  // during the interview. Advisory signals only — reviewed by the hiring team.
+  useEffect(() => {
+    if (phase !== 'interview') return;
+    const markBlur = () => { if (blurStart.current == null) blurStart.current = Date.now(); };
+    const markFocus = () => {
+      if (blurStart.current != null) {
+        focusLost.current += 1;
+        focusLostMs.current += Date.now() - blurStart.current;
+        blurStart.current = null;
+      }
+    };
+    const onVis = () => (document.visibilityState === 'hidden' ? markBlur() : markFocus());
+    const onPaste = () => { pasteCount.current += 1; };
+    const onFs = () => { if (!document.fullscreenElement) fsExits.current += 1; };
+    window.addEventListener('blur', markBlur);
+    window.addEventListener('focus', markFocus);
+    document.addEventListener('visibilitychange', onVis);
+    document.addEventListener('paste', onPaste);
+    document.addEventListener('fullscreenchange', onFs);
+    return () => {
+      window.removeEventListener('blur', markBlur);
+      window.removeEventListener('focus', markFocus);
+      document.removeEventListener('visibilitychange', onVis);
+      document.removeEventListener('paste', onPaste);
+      document.removeEventListener('fullscreenchange', onFs);
+    };
+  }, [phase]);
 
   const stopStream = useCallback(() => {
     try { if (vRecRef.current?.state === 'recording') vRecRef.current.stop(); } catch {}
@@ -166,6 +217,7 @@ export default function CandidateVideoInterviewPage() {
       /* autoplay blocked — the question text is always visible */
     } finally {
       setAiSpeaking(false);
+      answerReadyAt.current = Date.now();  // candidate can answer once the AI stops
     }
   }, [token]);
 
@@ -184,6 +236,7 @@ export default function CandidateVideoInterviewPage() {
       if (q.done) { await finishInterview(); return; }
       setQuestion(q);
       if (!ok) setUseTextFallback(true);
+      resetSignals();
       playQuestionAudio(q);
     } catch (err: any) {
       setProcessing(false);
@@ -195,6 +248,7 @@ export default function CandidateVideoInterviewPage() {
   // ---- recording (dual: video for review + audio for STT) ----
   const beginRecording = () => {
     if (!streamRef.current) { setUseTextFallback(true); return; }
+    markFirstInteraction();
     vChunks.current = []; aChunks.current = [];
     setRecSeconds(0);
     try {
@@ -249,18 +303,27 @@ export default function CandidateVideoInterviewPage() {
     setProcessing(true);
     setTurnError('');
     try {
+      const t2first = firstInteractionAt.current != null
+        ? Math.max(0, firstInteractionAt.current - (answerReadyAt.current || firstInteractionAt.current))
+        : undefined;
       const next: QuestionPayload = await interviewApi.turn(token, {
         video: pendingVideo.current || undefined,
         audio: pendingAudio.current || undefined,
         answerText,
         turnSeq: question?.question_number,
         durationSeconds: pendingDuration.current || undefined,
+        focusLostCount: focusLost.current,
+        focusLostMs: focusLostMs.current,
+        pasteCount: pasteCount.current,
+        fullscreenExits: fsExits.current,
+        timeToFirstAnswerMs: t2first,
       });
       pendingVideo.current = null;
       pendingAudio.current = null;
       setProcessing(false);
       if (next.done) { await finishInterview(); return; }
       setQuestion(next);
+      resetSignals();
       playQuestionAudio(next);
     } catch (err: any) {
       setProcessing(false);
@@ -373,7 +436,8 @@ export default function CandidateVideoInterviewPage() {
                   <li>• Sit in a quiet, well-lit place.</li>
                   <li>• Keep your face visible and centred.</li>
                   <li>• Answer each question out loud, then press “Finish answer”.</li>
-                  <li>• Complete the interview in one sitting.</li>
+                  <li>• Complete the interview in one sitting, by yourself.</li>
+                  <li>• Do not use notes, another person, or AI tools. This session is checked for integrity.</li>
                 </ul>
               </div>
             </div>
@@ -511,7 +575,7 @@ export default function CandidateVideoInterviewPage() {
                 <textarea
                   id="ans"
                   value={textAnswer}
-                  onChange={(e) => setTextAnswer(e.target.value)}
+                  onChange={(e) => { markFirstInteraction(); setTextAnswer(e.target.value); }}
                   placeholder="Type your answer…"
                   className="h-28 w-full resize-none rounded-xl border border-border bg-background p-3 text-sm outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30"
                 />

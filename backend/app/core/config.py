@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     INTERVIEW_QUESTION_COUNT: int = 8
     INTERVIEW_MAX_FOLLOWUPS: int = 3
     INTERVIEW_TTS_VOICE: str = "alloy"
+    # Interview integrity / proctoring analysis (advisory flags on the report).
+    INTERVIEW_INTEGRITY_ENABLED: bool = True
     # Optional dedicated secret for hashing interview tokens; falls back to SECRET_KEY env if unset.
     INTERVIEW_TOKEN_SECRET: Optional[str] = None
     # Local media store for interview video/audio recordings (swap for object storage in prod).

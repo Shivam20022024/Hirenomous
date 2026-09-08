@@ -50,7 +50,12 @@ export const interviewApi = {
    */
   turn: (
     token: string,
-    opts: { video?: Blob; audio?: Blob; answerText?: string; turnSeq?: number; durationSeconds?: number },
+    opts: {
+      video?: Blob; audio?: Blob; answerText?: string; turnSeq?: number; durationSeconds?: number;
+      // Integrity telemetry (best-effort — accumulated per question in the browser).
+      focusLostCount?: number; focusLostMs?: number; pasteCount?: number;
+      fullscreenExits?: number; timeToFirstAnswerMs?: number;
+    },
   ) => {
     const form = new FormData();
     if (opts.video) form.append('video', opts.video, `answer${extFor(opts.video)}`);
@@ -58,6 +63,16 @@ export const interviewApi = {
     if (opts.answerText) form.append('answer_text', opts.answerText);
     if (opts.turnSeq != null) form.append('turn_seq', String(opts.turnSeq));
     if (opts.durationSeconds != null) form.append('duration_seconds', String(Math.round(opts.durationSeconds)));
+    const sig: Record<string, number | undefined> = {
+      focus_lost_count: opts.focusLostCount,
+      focus_lost_ms: opts.focusLostMs,
+      paste_count: opts.pasteCount,
+      fullscreen_exits: opts.fullscreenExits,
+      time_to_first_answer_ms: opts.timeToFirstAnswerMs,
+    };
+    for (const [k, v] of Object.entries(sig)) {
+      if (v != null && Number.isFinite(v)) form.append(k, String(Math.round(v)));
+    }
     return request(`/interview-session/${encodeURIComponent(token)}/turn`, {
       method: 'POST',
       body: form,

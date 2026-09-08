@@ -34,6 +34,7 @@ from app.models.interview import (
 from app.services.audit_service import AuditService
 from app.services.email_service import EmailService
 from app.services import interview_prompt_engine as ipe
+from app.services import interview_integrity as integrity_engine
 from app.services.interview_storage import InterviewStorage
 from app.services.tts_service import TTSService
 from app.services.voice_service import VoiceService
@@ -58,7 +59,9 @@ def _iso(v):
 def _serialize(doc: dict) -> dict:
     if not doc:
         return doc
-    out = {k: v for k, v in doc.items() if k not in ("_id", "token_hash")}
+    # `session_meta` (raw IP list) stays server-side; the recruiter sees only the
+    # derived flags/signals under `integrity`.
+    out = {k: v for k, v in doc.items() if k not in ("_id", "token_hash", "session_meta")}
     for key in ("token_expires_at", "invited_at", "started_at", "completed_at",
                 "decided_at", "created_at", "updated_at"):
         if key in out:
@@ -85,6 +88,27 @@ def _serialize(doc: dict) -> dict:
         if isinstance(t, dict) and "ts" in t:
             t["ts"] = _iso(t["ts"])
     return out
+
+
+async def _record_session_meta(db, interview_id: str, ip: Optional[str], ua: Optional[str], event: str) -> None:
+    """Append a session-provenance entry (IP + user-agent) for integrity checks.
+    Best-effort, de-duplicated on the most recent (ip, ua), list capped at 50."""
+    if not ip and not ua:
+        return
+    try:
+        doc = await db.interviews.find_one({"id": interview_id}, {"_id": 0, "session_meta": 1})
+        meta = (doc or {}).get("session_meta") or []
+        if meta and meta[-1].get("ip") == ip and meta[-1].get("ua") == ua:
+            return
+        await db.interviews.update_one(
+            {"id": interview_id},
+            {"$push": {"session_meta": {
+                "$each": [{"ip": ip, "ua": (ua or "")[:400], "at": datetime.utcnow().isoformat(), "event": event}],
+                "$slice": -50,
+            }}},
+        )
+    except Exception as exc:
+        logger.warning(f"_record_session_meta failed for {interview_id}: {exc}")
 
 
 def _base_question_count(plan: List[dict]) -> int:
@@ -380,6 +404,7 @@ class InterviewService:
         projection = {
             "_id": 0, "token_hash": 0, "transcript": 0, "answers": 0,
             "question_plan": 0, "snapshot": 0, "progress": 0, "ai_report": 0,
+            "session_meta": 0, "integrity": 0,
         }
         rows = await db.interviews.find(query, projection).sort("created_at", -1).to_list(length=500)
 
@@ -461,6 +486,7 @@ class InterviewService:
             "scores": interview.get("scores") or {},
             "recommendation": interview.get("recommendation"),
             "ai_report": interview.get("ai_report") or {},
+            "integrity": interview.get("integrity") or {},
             "recruiter_decision": interview.get("recruiter_decision"),
             "recruiter_feedback": interview.get("recruiter_feedback"),
             # Total = everything actually asked (planned questions + any follow-ups).
@@ -618,9 +644,10 @@ class InterviewService:
         }
 
     @staticmethod
-    async def start_session(token: str) -> dict:
+    async def start_session(token: str, *, client_ip: Optional[str] = None, client_ua: Optional[str] = None) -> dict:
         interview = await resolve_interview_by_token(token, require_active=True)
         db = get_db()
+        await _record_session_meta(db, interview["id"], client_ip, client_ua, "start")
 
         if interview.get("status") == "in_progress" and (interview.get("progress") or {}).get("pending_question"):
             # Idempotent resume: re-serve the current question.
@@ -657,9 +684,13 @@ class InterviewService:
         answer_text: Optional[str] = None,
         turn_seq: Optional[int] = None,
         duration_seconds: Optional[int] = None,
+        client_ip: Optional[str] = None,
+        client_ua: Optional[str] = None,
+        client_signals: Optional[Dict[str, Any]] = None,
     ) -> dict:
         interview = await resolve_interview_by_token(token, require_active=True)
         db = get_db()
+        await _record_session_meta(db, interview["id"], client_ip, client_ua, "turn")
 
         if interview.get("status") != "in_progress":
             raise HTTPException(status_code=409, detail="Interview is not in progress.")
@@ -717,6 +748,7 @@ class InterviewService:
             if not transcript_text:
                 transcript_text = "(no audible answer was captured)"
 
+            sig = client_signals or {}
             answer_entry = {
                 "question_id": pending["id"],
                 "answer_text": transcript_text,
@@ -727,6 +759,13 @@ class InterviewService:
                 "feedback": None,
                 "duration_seconds": duration_seconds,
                 "answered_at": now,
+                # Integrity telemetry (best-effort, from the browser).
+                "typed_only": bool(answer_text) and audio_ref is None and video_ref is None,
+                "focus_lost_count": sig.get("focus_lost_count"),
+                "focus_lost_ms": sig.get("focus_lost_ms"),
+                "paste_count": sig.get("paste_count"),
+                "fullscreen_exits": sig.get("fullscreen_exits"),
+                "time_to_first_answer_ms": sig.get("time_to_first_answer_ms"),
             }
             await db.interviews.update_one(
                 {"id": interview["id"]},
@@ -908,7 +947,54 @@ class InterviewService:
             interview_id=interview_id,
             payload={"overall": overall, "recommendation": result["recommendation"], "evaluation_status": eval_status},
         )
+
+        # Integrity analysis runs alongside evaluation — advisory flags only, never
+        # blocks the report and never changes the score. Best-effort.
+        await InterviewService._run_integrity(interview_id)
+
         return {"status": eval_status, "scores": result["scores"], "recommendation": result["recommendation"]}
+
+    @staticmethod
+    async def _run_integrity(interview_id: str) -> Optional[dict]:
+        if not settings.INTERVIEW_INTEGRITY_ENABLED:
+            return None
+        db = get_db()
+        try:
+            interview = await db.interviews.find_one(
+                {"id": interview_id},
+                {"_id": 0, "id": 1, "answers": 1, "transcript": 1, "session_meta": 1,
+                 "organization_id": 1, "candidate_id": 1, "job_id": 1},
+            )
+            if not interview:
+                return None
+            result = await integrity_engine.analyze(interview)
+            await db.interviews.update_one(
+                {"id": interview_id}, {"$set": {"integrity": result, "updated_at": datetime.utcnow()}}
+            )
+            await AuditService.record(
+                organization_id=interview.get("organization_id"), event_type="interview_integrity_analyzed",
+                actor_type="ai", candidate_id=interview.get("candidate_id"), job_id=interview.get("job_id"),
+                interview_id=interview_id,
+                payload={"level": result.get("level"), "score": result.get("score"),
+                         "flags": [f.get("code") for f in result.get("flags", [])]},
+            )
+            return result
+        except Exception as exc:
+            logger.warning(f"integrity analysis failed for {interview_id}: {exc}")
+            return None
+
+    @staticmethod
+    async def retry_integrity(*, org_id: str, interview_id: str) -> dict:
+        db = get_db()
+        interview = await db.interviews.find_one(
+            {"id": interview_id, "organization_id": org_id}, {"_id": 0, "status": 1}
+        )
+        if not interview:
+            raise HTTPException(status_code=404, detail="Interview not found")
+        result = await InterviewService._run_integrity(interview_id)
+        if result is None:
+            raise HTTPException(status_code=503, detail="Integrity analysis is unavailable or disabled.")
+        return result
 
     @staticmethod
     async def retry_evaluation(*, org_id: str, interview_id: str) -> dict:

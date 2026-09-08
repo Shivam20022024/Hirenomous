@@ -8,7 +8,7 @@ import os
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body, Path
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Body, Path, Request
 from fastapi.responses import FileResponse
 
 from app.api.deps import get_context_organization_id, get_current_active_user
@@ -99,6 +99,12 @@ async def reevaluate(interview_id: str, org_id: str = Depends(get_context_organi
     return await InterviewService.retry_evaluation(org_id=org_id, interview_id=interview_id)
 
 
+@recruiter_router.post("/{interview_id}/integrity")
+async def rerun_integrity(interview_id: str, org_id: str = Depends(get_context_organization_id)):
+    """Recompute the advisory integrity analysis for a completed interview."""
+    return await InterviewService.retry_integrity(org_id=org_id, interview_id=interview_id)
+
+
 @recruiter_router.get("/{interview_id}/transcript")
 async def get_transcript(interview_id: str, org_id: str = Depends(get_context_organization_id)):
     return await InterviewService.get_transcript(org_id=org_id, interview_id=interview_id)
@@ -138,30 +144,55 @@ async def recruiter_decision(
 candidate_router = APIRouter(prefix="/interview-session", tags=["AI Interview (Candidate)"])
 
 
+def _client_ip(request: Request) -> Optional[str]:
+    """Real client IP behind nginx (X-Forwarded-For), falling back to the socket."""
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip() or None
+    return request.client.host if request.client else None
+
+
 @candidate_router.get("/{token}")
 async def session_info(token: str = Path(..., min_length=20)):
     return await InterviewService.session_info(token)
 
 
 @candidate_router.post("/{token}/start")
-async def start_session(token: str = Path(..., min_length=20)):
-    return await InterviewService.start_session(token)
+async def start_session(request: Request, token: str = Path(..., min_length=20)):
+    return await InterviewService.start_session(
+        token, client_ip=_client_ip(request), client_ua=request.headers.get("user-agent"),
+    )
 
 
 @candidate_router.post("/{token}/turn")
 async def process_turn(
+    request: Request,
     token: str = Path(..., min_length=20),
     video: Optional[UploadFile] = File(None),
     audio: Optional[UploadFile] = File(None),
     answer_text: Optional[str] = Form(None),
     turn_seq: Optional[int] = Form(None),
     duration_seconds: Optional[int] = Form(None),
+    # Integrity telemetry (best-effort — the browser may not send these).
+    focus_lost_count: Optional[int] = Form(None),
+    focus_lost_ms: Optional[int] = Form(None),
+    paste_count: Optional[int] = Form(None),
+    fullscreen_exits: Optional[int] = Form(None),
+    time_to_first_answer_ms: Optional[int] = Form(None),
 ):
     if video is None and audio is None and not answer_text:
         raise HTTPException(status_code=400, detail="Provide a video/audio recording or answer_text.")
     return await InterviewService.process_turn(
         token, video=video, audio=audio, answer_text=answer_text,
         turn_seq=turn_seq, duration_seconds=duration_seconds,
+        client_ip=_client_ip(request), client_ua=request.headers.get("user-agent"),
+        client_signals={
+            "focus_lost_count": focus_lost_count,
+            "focus_lost_ms": focus_lost_ms,
+            "paste_count": paste_count,
+            "fullscreen_exits": fullscreen_exits,
+            "time_to_first_answer_ms": time_to_first_answer_ms,
+        },
     )
 
 
