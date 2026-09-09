@@ -115,8 +115,22 @@ def _base_question_count(plan: List[dict]) -> int:
     return len([q for q in plan if not q.get("is_followup")])
 
 
+_NO_AUDIBLE = "(no audible answer was captured)"
+
+
 def _answered_count(interview: dict) -> int:
     return len([a for a in (interview.get("answers") or []) if a.get("answer_text")])
+
+
+def _substantive_answer_chars(interview: dict) -> int:
+    """Total characters the candidate actually contributed — placeholder / empty
+    answers don't count. Used to decide whether there is anything to evaluate."""
+    total = 0
+    for a in (interview.get("answers") or []):
+        t = (a.get("answer_text") or "").strip()
+        if t and t != _NO_AUDIBLE:
+            total += len(t)
+    return total
 
 
 # ======================================================================
@@ -977,6 +991,37 @@ class InterviewService:
             return {"status": "skipped", "reason": f"status is {interview.get('status')}"}
         if interview.get("evaluation_status") == "evaluated":
             return {"status": "already_evaluated"}
+
+        # Nothing to evaluate: the candidate answered nothing (or only inaudible
+        # blanks). Do NOT run the LLM — it would score the résumé and invent a
+        # match. Store an honest empty result and flag for human review.
+        if _answered_count(interview) == 0 or _substantive_answer_chars(interview) < 25:
+            now = datetime.utcnow()
+            await db.interviews.update_one(
+                {"id": interview_id},
+                {"$set": {
+                    "scores": {k: None for k in
+                               ("overall", "technical_knowledge", "problem_solving", "communication",
+                                "role_specific", "experience", "answer_relevance")},
+                    "recommendation": None,
+                    "ai_report": {
+                        "strengths": [], "areas_to_improve": [],
+                        "summary": ("The candidate ended the interview without giving any answers, "
+                                    "so there is nothing to evaluate. The interview was likely abandoned."),
+                        "llm_recommendation": None,
+                        "not_evaluable": True,
+                    },
+                    "evaluation_status": "needs_review",
+                    "updated_at": now,
+                }},
+            )
+            await AuditService.record(
+                organization_id=interview["organization_id"], event_type="interview_not_evaluable",
+                actor_type="ai", candidate_id=interview["candidate_id"], job_id=interview.get("job_id"),
+                interview_id=interview_id, payload={"reason": "no_answers"},
+            )
+            await InterviewService._run_integrity(interview_id)
+            return {"status": "needs_review", "reason": "no_answers"}
 
         try:
             result = await ipe.evaluate_interview(

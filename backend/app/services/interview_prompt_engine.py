@@ -300,31 +300,66 @@ def compute_overall(scores: Dict[str, Any]) -> Optional[float]:
     return round(num / denom, 1)
 
 
+def _empty_eval() -> Dict[str, Any]:
+    return {
+        "scores": {k: None for k in SCORE_DIMENSIONS + ["overall"]},
+        "recommendation": None,
+        "ai_report": {
+            "strengths": [], "areas_to_improve": [],
+            "summary": "The candidate did not answer any interview questions, so there is nothing to evaluate.",
+            "llm_recommendation": None, "not_evaluable": True,
+        },
+    }
+
+
 async def evaluate_interview(snapshot: dict, transcript: List[dict], answers: List[dict]) -> Dict[str, Any]:
     """Returns a dict with `scores` (incl. deterministic overall), `recommendation`
     (deterministic bucket) and `ai_report` (qualitative + the LLM's own suggestion)."""
     lines = []
+    candidate_turns = 0
+    candidate_chars = 0
     for t in transcript:
-        role = "Interviewer" if t.get("role") == "ai" else "Candidate"
-        lines.append(f"{role}: {t.get('text', '')}")
+        is_candidate = t.get("role") != "ai"
+        role = "Candidate" if is_candidate else "Interviewer"
+        text = str(t.get("text", "") or "")
+        lines.append(f"{role}: {text}")
+        if is_candidate and text.strip() and text.strip() != "(no audible answer was captured)":
+            candidate_turns += 1
+            candidate_chars += len(text.strip())
     transcript_text = "\n".join(lines)[:12000]
+
+    # Defense in depth: never let the LLM score a transcript with no real answers
+    # (it would grade the résumé and invent a match).
+    if candidate_turns == 0 or candidate_chars < 25:
+        logger.info("evaluate_interview: no substantive candidate answers — returning empty evaluation")
+        return _empty_eval()
 
     system = (
         "You are a hiring analyst producing an objective, job-anchored evaluation of an AI interview "
         "transcript. " + FAIRNESS_RULES + " Output ONLY the requested JSON."
     )
     user = f"""
-JOB (immutable snapshot)
+ROLE REQUIREMENTS (what the job needs — this is context, NOT the candidate's answers)
 {snapshot.get('job_context', 'N/A')}
 
-CANDIDATE RESUME CONTEXT (PII removed, immutable snapshot)
+WHAT THE ROLE TYPICALLY EXPECTS FROM A RESUME (context only — the candidate has NOT verified any of this in the interview)
 {snapshot.get('resume_context', 'N/A')}
 
-INTERVIEW TRANSCRIPT
+INTERVIEW TRANSCRIPT (the ONLY evidence you may score from)
 {transcript_text}
 
-Score each dimension 0-100 based strictly on the transcript. If the candidate did not
-demonstrate a dimension, score it low rather than guessing. Return STRICT JSON:
+SCORING RULES — read carefully:
+- Score every dimension 0-100 using ONLY what the candidate actually SAID in the transcript above.
+- NEVER infer knowledge, skill or experience from the résumé context. The résumé tells you what
+  the role wants; it is not evidence the candidate can do it. A strong résumé with weak answers is
+  a low score.
+- A question the candidate did not answer, answered off-topic, or answered "I don't know" contributes
+  NOTHING to any dimension — score that portion 0.
+- `strengths` and `areas_to_improve` must quote or paraphrase something the candidate SAID. Do not
+  list résumé skills as strengths.
+- If the candidate barely spoke, most dimensions should be well below 40.
+
+Return STRICT JSON:
 {{
   "technical_knowledge": 0-100,
   "problem_solving": 0-100,
@@ -332,9 +367,9 @@ demonstrate a dimension, score it low rather than guessing. Return STRICT JSON:
   "role_specific": 0-100,
   "experience": 0-100,
   "answer_relevance": 0-100,
-  "strengths": ["short bullet", ...],
+  "strengths": ["short bullet grounded in what the candidate said", ...],
   "areas_to_improve": ["short bullet", ...],
-  "summary": "2-4 sentence factual summary",
+  "summary": "2-4 sentence factual summary of how the candidate performed IN THE INTERVIEW",
   "recommendation": "strong_match | match | weak_match | no_match"
 }}
 """

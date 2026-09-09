@@ -46,6 +46,26 @@ async def analyze(interview: dict, *, run_llm: bool = True) -> Dict[str, Any]:
     meta = interview.get("session_meta") or []
     flags: List[dict] = []
 
+    # Interview never actually taken — say so plainly instead of a misleading "Clean".
+    real_answers = [
+        a for a in answers
+        if (a.get("answer_text") or "").strip()
+        and (a.get("answer_text") or "").strip() != "(no audible answer was captured)"
+    ]
+    if not real_answers:
+        return {
+            "score": 0,
+            "level": "review",
+            "flags": [_flag(
+                "not_attempted", "medium", "Interview not attempted",
+                "The candidate ended the interview without answering any questions. There is nothing to "
+                "check for integrity, and nothing to evaluate.",
+            )],
+            "signals": {"answered": 0},
+            "analyzed_at": datetime.utcnow().isoformat(),
+            "version": "integrity-v1",
+        }
+
     # ------------------------------------------------------------------
     # 1. Session provenance
     # ------------------------------------------------------------------

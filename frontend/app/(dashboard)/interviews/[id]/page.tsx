@@ -170,6 +170,8 @@ export default function InterviewReportPage() {
   const integrity = report.integrity || {};
   const evaluated = report.evaluation_status === 'evaluated' || report.evaluation_status === 'needs_review';
   const decided = report.recruiter_decision;
+  const notEvaluable = report.status === 'completed'
+    && (aiReport.not_evaluable === true || (evaluated && report.questions_answered === 0 && overall == null));
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-6 px-5 py-9 lg:px-8 lg:py-14">
@@ -204,6 +206,56 @@ export default function InterviewReportPage() {
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw size={14} />} Run evaluation
           </Button>
         </div>
+      ) : notEvaluable ? (
+        <>
+          <div className="rounded-xl border border-warning/40 bg-warning/10 p-7">
+            <h3 className="flex items-center gap-2 text-base font-bold text-warning-text">
+              <AlertTriangle size={17} /> No answers to evaluate
+            </h3>
+            <p className="mt-3 text-sm leading-relaxed text-foreground/85">
+              {aiReport.summary || 'The candidate ended the interview without answering any questions. There is no interview performance to score — the AI produced no assessment.'}
+            </p>
+            <p className="mt-3 text-xs font-medium text-muted-foreground">
+              Any score or recommendation would be meaningless here. Treat this as an abandoned interview:
+              re-invite the candidate, or make your decision without an interview.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-10 rounded-xl border border-border bg-card p-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Questions</p>
+              <p className="mt-1.5 font-mono text-2xl font-bold text-foreground">{report.questions_total}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Answered</p>
+              <p className="mt-1.5 font-mono text-2xl font-bold text-destructive">{report.questions_answered}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Duration</p>
+              <p className="mt-1.5 font-mono text-2xl font-bold text-foreground">{report.duration_minutes != null ? `${report.duration_minutes} min` : '—'}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-6">
+            <Button variant="outline" size="lg" onClick={openTranscript}>
+              <MessageSquare size={16} /> View Transcript
+            </Button>
+            {decided ? (
+              <span className="inline-flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-sm font-bold text-muted-foreground">
+                Recruiter decision: <span className="uppercase text-foreground">{decided}</span>
+              </span>
+            ) : (
+              <>
+                <Button size="lg" variant="destructive" onClick={() => decide('reject')} disabled={busy}>
+                  <X size={16} /> Reject Candidate
+                </Button>
+                <Button size="lg" variant="outline" onClick={() => decide('needs_review')} disabled={busy}>
+                  <HelpCircle size={16} /> Needs Review
+                </Button>
+              </>
+            )}
+          </div>
+        </>
       ) : (
         <>
           {/* Overall + recommendation */}
