@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { fetchApi } from '@/lib/api';
+import { BrandLogo } from '@/components/brand-logo';
 
 const ROLES = [
   { value: 'ORGANIZATION_ADMIN', label: 'Admin / owner' },
@@ -46,7 +47,7 @@ export default function RequestAccessPage() {
     <div className="app-surface flex min-h-screen items-center justify-center p-4">
       <div className="w-full max-w-md space-y-7 rounded-2xl border border-border bg-card p-8 shadow-xl">
         <div className="text-center">
-          <div className="brand-mark mx-auto !h-12 !w-12 text-xl">H</div>
+          <BrandLogo className="mx-auto h-12 w-12" />
           <h1 className="mt-6 text-2xl font-bold tracking-tight text-foreground">Request company access</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Tell us about your company. Once approved you can sign in with the email and password below.
