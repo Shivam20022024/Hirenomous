@@ -35,11 +35,17 @@ def verify_callback_token(credentials: HTTPAuthorizationCredentials = Depends(se
 router = APIRouter(prefix="/bolna", tags=["Bolna Integration"])
 logger = logging.getLogger(__name__)
 
+async def _org_name(db, org_id: str) -> str:
+    """The hiring company's name — spoken by the AI on the call ('the role at <Company>')."""
+    org = await db.organizations.find_one({"id": org_id}, {"_id": 0, "name": 1})
+    return (org or {}).get("name") or settings.APP_NAME
+
+
 @router.post("/call-candidate/{candidate_id}")
 async def call_candidate(candidate_id: str, org_id: str = Depends(get_context_organization_id)):
     """Initiates a Bolna.ai call for a specific candidate."""
     db = get_db()
-    
+
     candidate = await db.candidates.find_one({"id": candidate_id, "organization_id": org_id})
     if not candidate:
         candidate = await db.candidates.find_one({"name": {"$regex": candidate_id.replace("-", " "), "$options": "i"}, "organization_id": org_id})
@@ -53,10 +59,11 @@ async def call_candidate(candidate_id: str, org_id: str = Depends(get_context_or
 
     try:
         call_result = await BolnaService.initiate_bolna_call(
-            candidate_id=candidate_id, 
+            candidate_id=candidate_id,
             phone_number=phone_number,
             candidate_name=candidate.get("name", ""),
-            job_title=candidate.get("role", "Candidate")
+            job_title=candidate.get("role", "Candidate"),
+            company_name=await _org_name(db, org_id),
         )
         
         if call_result["status"] != "success":
@@ -112,7 +119,8 @@ async def call_shortlisted(request: Optional[CallShortlistedRequest] = None, org
         query["job_id"] = {"$in": request.job_ids}
         
     shortlisted = await db.candidates.find(query).to_list(length=100)
-    
+    company_name = await _org_name(db, org_id)
+
     called_ids = []
     called_phones = {} # Maps phone number to bolna_call_id
     results_by_job = {}
@@ -155,10 +163,11 @@ async def call_shortlisted(request: Optional[CallShortlistedRequest] = None, org
                 continue
 
             res = await BolnaService.initiate_bolna_call(
-                candidate_id=candidate["id"], 
+                candidate_id=candidate["id"],
                 phone_number=phone,
                 candidate_name=candidate.get("name", ""),
-                job_title=job_title
+                job_title=job_title,
+                company_name=company_name,
             )
             
             if res["status"] == "success":

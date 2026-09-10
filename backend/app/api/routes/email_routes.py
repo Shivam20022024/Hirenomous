@@ -24,9 +24,10 @@ async def send_shortlisted_emails(job_id: Optional[str] = None, org_id: str = De
 
     db = get_db()
 
-    # Candidate-facing emails always sign off with the product name, not the
-    # tenant/org name — keeps every candidate touchpoint consistent.
-    company_name = settings.APP_NAME
+    # Candidate-facing emails are branded with the hiring company (multi-tenant):
+    # signed "<Company> Hiring Team", Reply-To the company's contact address.
+    org = await db.organizations.find_one({"id": org_id})
+    company_name = (org or {}).get("name") or settings.APP_NAME
 
     # "Email Interested" should only reach candidates who actually expressed interest
     # (post-screening status), scoped to the job currently selected in the UI —
@@ -77,7 +78,7 @@ async def send_shortlisted_emails(job_id: Optional[str] = None, org_id: str = De
     # send_bulk_shortlist_emails does blocking network I/O (smtplib, requests) per
     # candidate. Run it in a worker thread so a slow/hung SMTP connection can't
     # freeze the single asyncio event loop for every other request on the server.
-    result = await run_in_threadpool(EmailService.send_bulk_shortlist_emails, candidates, company_name)
+    result = await run_in_threadpool(EmailService.send_bulk_shortlist_emails, candidates, company_name, org)
 
     # Mark emailed candidates so a second click does not re-send to them.
     if result.get("sent_ids"):

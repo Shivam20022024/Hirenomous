@@ -6,6 +6,10 @@ import uuid
 class OrganizationBase(BaseModel):
     name: str
     status: str = "active"  # active, suspended
+    # Candidate-facing email: the "From" display name is "<name> Hiring Team" and
+    # replies go to this address (falls back to contact_email).
+    contact_email: Optional[str] = None
+    reply_to: Optional[str] = None
 
 class OrganizationCreate(OrganizationBase):
     pass

@@ -112,7 +112,8 @@ async def approve_access_request(req_id: str, current_user: UserInDB = Depends(r
         await db["access_requests"].update_one({"_id": req["_id"]}, {"$set": {"status": "approved"}})
         raise HTTPException(status_code=400, detail="An account already exists for this email.")
 
-    org_data = Organization(name=company, status="active").dict()
+    # contact_email brands candidate emails: signed "<Company> Hiring Team", Reply-To here.
+    org_data = Organization(name=company, status="active", contact_email=email).dict()
     await db["organizations"].insert_one(org_data)
     org_id = org_data["id"]
 
@@ -196,7 +197,7 @@ async def create_company(request: CreateCompanyRequest, current_user: UserInDB =
         raise HTTPException(status_code=400, detail="User with this email already exists")
         
     # Create Organization
-    org_data = Organization(name=request.company_name, status="active").dict()
+    org_data = Organization(name=request.company_name, status="active", contact_email=request.admin_email).dict()
     await db["organizations"].insert_one(org_data)
     org_id = org_data["id"]
     

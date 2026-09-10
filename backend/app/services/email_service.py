@@ -1,7 +1,8 @@
 import logging
 import smtplib
 from email.message import EmailMessage
-from typing import Iterable, Optional
+from email.utils import formataddr
+from typing import Any, Dict, Iterable, Optional
 
 from app.core.config import settings
 
@@ -9,6 +10,18 @@ logger = logging.getLogger(__name__)
 
 
 class EmailService:
+    @staticmethod
+    def sender_for(org: Optional[Dict[str, Any]]) -> Dict[str, Optional[str]]:
+        """Per-company sender identity for candidate-facing mail. The From address
+        stays the one verified sending address, but the display name and Reply-To
+        belong to the hiring company (multi-tenant branding)."""
+        org = org or {}
+        name = org.get("name") or settings.APP_NAME
+        return {
+            "from_name": f"{name} Hiring Team",
+            "reply_to": org.get("reply_to") or org.get("contact_email"),
+        }
+
     @staticmethod
     def is_configured() -> bool:
         return all([
@@ -168,7 +181,7 @@ class EmailService:
         return subject, body
 
     @staticmethod
-    def send_selection_email(candidate: dict, company_name: str) -> dict:
+    def send_selection_email(candidate: dict, company_name: str, org: Optional[dict] = None) -> dict:
         """Explicitly send the progress email to a SINGLE candidate at the
         'selected' stage. Reuses `build_shortlist_email`. Only ever called from an
         explicit recruiter 'Select' action — never from any interview lifecycle."""
@@ -178,7 +191,7 @@ class EmailService:
             return {"sent": 0, "skipped": 1, "failed": 0, "errors": [f"{name}: no valid email"]}
         try:
             subject, body = EmailService.build_shortlist_email(candidate, company_name, stage="selected")
-            EmailService.send_email(email, subject, body)
+            EmailService.send_email(email, subject, body, **EmailService.sender_for(org))
             return {"sent": 1, "skipped": 0, "failed": 0, "errors": []}
         except Exception as exc:
             return {"sent": 0, "skipped": 0, "failed": 1, "errors": [f"{name} <{email}>: {exc}"]}
@@ -210,7 +223,7 @@ class EmailService:
         return subject, body
 
     @staticmethod
-    def send_rejection_email(candidate: dict, company_name: str) -> dict:
+    def send_rejection_email(candidate: dict, company_name: str, org: Optional[dict] = None) -> dict:
         """Send the post-interview rejection email to a SINGLE candidate. Only ever
         called from an explicit recruiter 'Reject' action on a completed interview."""
         email = (candidate.get("email") or "").strip()
@@ -219,22 +232,27 @@ class EmailService:
             return {"sent": 0, "skipped": 1, "failed": 0, "errors": [f"{name}: no valid email"]}
         try:
             subject, body = EmailService.build_rejection_email(candidate, company_name)
-            EmailService.send_email(email, subject, body)
+            EmailService.send_email(email, subject, body, **EmailService.sender_for(org))
             return {"sent": 1, "skipped": 0, "failed": 0, "errors": []}
         except Exception as exc:
             return {"sent": 0, "skipped": 0, "failed": 1, "errors": [f"{name} <{email}>: {exc}"]}
 
     @staticmethod
-    def send_email(to_email: str, subject: str, body: str) -> None:
+    def send_email(
+        to_email: str, subject: str, body: str, *,
+        from_name: Optional[str] = None, reply_to: Optional[str] = None,
+    ) -> None:
         if not EmailService.is_configured():
             raise RuntimeError(
                 "SMTP is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, and SMTP_FROM_EMAIL."
             )
 
         message = EmailMessage()
-        message["From"] = settings.SMTP_FROM_EMAIL
+        message["From"] = formataddr((from_name, settings.SMTP_FROM_EMAIL)) if from_name else settings.SMTP_FROM_EMAIL
         message["To"] = to_email
         message["Subject"] = subject
+        if reply_to and "@" in reply_to:
+            message["Reply-To"] = reply_to
         message.set_content(body)
 
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=30) as server:
@@ -244,12 +262,13 @@ class EmailService:
             server.send_message(message)
 
     @staticmethod
-    def send_bulk_shortlist_emails(candidates: Iterable[dict], company_name: str) -> dict:
+    def send_bulk_shortlist_emails(candidates: Iterable[dict], company_name: str, org: Optional[dict] = None) -> dict:
         sent = 0
         skipped = 0
         failed = 0
         errors = []
         sent_ids = []
+        sender = EmailService.sender_for(org)
 
         for candidate in candidates:
 
@@ -262,7 +281,7 @@ class EmailService:
 
             try:
                 subject, body = EmailService.build_shortlist_email(candidate, company_name)
-                EmailService.send_email(email, subject, body)
+                EmailService.send_email(email, subject, body, **sender)
                 sent += 1
                 if candidate.get("id"):
                     sent_ids.append(candidate["id"])
