@@ -12,11 +12,18 @@ interface User {
   organization_id?: string;
 }
 
+interface ViewAsOrg {
+  id: string;
+  name: string;
+}
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
+  viewAsOrg: ViewAsOrg | null;
+  setViewAsOrg: (org: ViewAsOrg | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,6 +31,20 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewAsOrg, setViewAsOrgState] = useState<ViewAsOrg | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('viewAsOrg');
+      if (raw) setViewAsOrgState(JSON.parse(raw));
+    } catch {}
+  }, []);
+
+  const setViewAsOrg = (org: ViewAsOrg | null) => {
+    if (org) localStorage.setItem('viewAsOrg', JSON.stringify(org));
+    else localStorage.removeItem('viewAsOrg');
+    setViewAsOrgState(org);
+  };
 
   useEffect(() => {
     const initAuth = async () => {
@@ -45,17 +66,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = (token: string, userData: User) => {
     localStorage.setItem('token', token);
+    localStorage.removeItem('viewAsOrg');
+    setViewAsOrgState(null);
     setUser(userData);
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('viewAsOrg');
     setUser(null);
+    setViewAsOrgState(null);
     window.location.href = '/login';
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, viewAsOrg, setViewAsOrg }}>
       {children}
     </AuthContext.Provider>
   );

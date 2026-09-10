@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { ThemeToggle } from '@/components/theme-toggle';
 import {
@@ -37,9 +37,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [menuOpen, setMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const router = useRouter();
+  const { user, logout, viewAsOrg, setViewAsOrg } = useAuth();
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // A super admin has no org of their own — they must pick a company first.
+  useEffect(() => {
+    if (user && user.role === 'SUPER_ADMIN' && !viewAsOrg) router.replace('/superadmin');
+  }, [user, viewAsOrg, router]);
+
+  const exitViewAs = () => {
+    setViewAsOrg(null);
+    router.push('/superadmin');
+  };
+
+  const showViewAsBanner = user?.role === 'SUPER_ADMIN' && !!viewAsOrg;
 
   return (
     <div className="fixed inset-0 flex overflow-hidden bg-background">
@@ -124,6 +137,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         </header>
+
+        {showViewAsBanner && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/40 bg-warning/10 px-5 py-2.5 text-sm lg:px-10">
+            <span className="font-semibold text-warning-text">
+              Viewing <span className="font-bold">{viewAsOrg!.name}</span> as super admin — changes affect this company&rsquo;s data.
+            </span>
+            <button
+              onClick={exitViewAs}
+              className="rounded-lg border border-warning/40 px-3 py-1 text-xs font-bold text-warning-text hover:bg-warning/20"
+            >
+              Exit to Super Admin
+            </button>
+          </div>
+        )}
 
         {/* Main Content */}
         <main className="app-surface min-h-0 flex-1 overflow-y-auto">

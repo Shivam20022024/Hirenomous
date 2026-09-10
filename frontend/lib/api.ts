@@ -15,6 +15,16 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
+  // Super-admin "view as company": the backend only honours this header for a
+  // SUPER_ADMIN token, so it's safe to always forward when set.
+  const viewAs = typeof window !== 'undefined' ? localStorage.getItem('viewAsOrg') : null;
+  if (viewAs) {
+    try {
+      const parsed = JSON.parse(viewAs);
+      if (parsed?.id) headers['X-View-As-Org'] = parsed.id;
+    } catch {}
+  }
+
   // Remove Content-Type if it's FormData (browser will set it with boundary automatically)
   if (options.body instanceof FormData) {
     delete headers['Content-Type'];

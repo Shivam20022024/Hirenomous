@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { fetchApi } from '@/lib/api';
@@ -34,7 +35,7 @@ export default function LoginPage() {
 
       if (response.access_token) {
         login(response.access_token, response.user);
-        router.push('/dashboard');
+        router.push(response.user?.role === 'SUPER_ADMIN' ? '/superadmin' : '/dashboard');
       }
     } catch (err: any) {
       setError(err.message || 'Failed to login');
@@ -103,6 +104,13 @@ export default function LoginPage() {
             {isLoading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
+
+        <p className="text-center text-sm text-muted-foreground">
+          New company?{' '}
+          <Link href="/request-access" className="font-semibold text-primary hover:underline">
+            Request access
+          </Link>
+        </p>
 
         <div className="mt-6 border-t border-border pt-4 text-center">
           <p className="text-xs text-muted-foreground">

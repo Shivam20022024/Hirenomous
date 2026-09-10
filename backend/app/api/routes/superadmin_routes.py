@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List, Dict
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException
 from app.core.database import get_db
-from app.models.user import UserInDB, Organization, OrganizationCreate, UserCreate
+from app.models.user import UserInDB, Organization
 from app.api.deps import require_super_admin
 from app.core.auth import get_password_hash
 from pydantic import BaseModel
@@ -26,7 +26,9 @@ async def get_global_stats(current_user: UserInDB = Depends(require_super_admin)
     total_users = await db["users"].count_documents({})
     total_jobs = await db["jobs_board"].count_documents({})
     total_candidates = await db["candidates"].count_documents({})
+    total_interviews = await db["interviews"].count_documents({})
     total_calls = await db["calls"].count_documents({})
+    pending_requests = await db["access_requests"].count_documents({"status": "pending"})
     
     # Calculate call minutes (if duration_seconds exists)
     pipeline = [
@@ -46,73 +48,107 @@ async def get_global_stats(current_user: UserInDB = Depends(require_super_admin)
         "total_users": total_users,
         "total_jobs": total_jobs,
         "total_candidates": total_candidates,
+        "total_interviews": total_interviews,
         "total_calls": total_calls,
-        "total_call_minutes": total_call_minutes
+        "total_call_minutes": total_call_minutes,
+        "pending_requests": pending_requests,
     }
+
+def _as_object_id(req_id: str) -> ObjectId:
+    try:
+        return ObjectId(req_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid request id")
+
+
+# `access_requests` has two historical shapes. Normalise to one.
+_SECRET_KEYS = ("hashed_password", "password_hash", "password")
+
+
+def _view_request(req: dict) -> dict:
+    """Public view of an access request — no secrets, both schemas mapped."""
+    return {
+        "_id": str(req["_id"]),
+        "company": req.get("company") or req.get("company_name") or "—",
+        "name": req.get("name") or req.get("contact_name") or "—",
+        "email": req.get("email") or "—",
+        "role": req.get("role") or "ORGANIZATION_ADMIN",
+        "status": str(req.get("status") or "pending").lower(),
+        "created_at": req.get("created_at"),
+        "reviewed_at": req.get("reviewed_at"),
+        "has_password": any(req.get(k) for k in _SECRET_KEYS),
+    }
+
 
 @router.get("/requests")
 async def get_access_requests(current_user: UserInDB = Depends(require_super_admin)):
     db = get_db()
-    requests = []
-    
     cursor = db["access_requests"].find().sort("created_at", -1)
-    async for req in cursor:
-        req["_id"] = str(req["_id"])
-        # Do not expose hashed password
-        req.pop("hashed_password", None)
-        requests.append(req)
-        
-    return requests
+    return [_view_request(req) async for req in cursor]
 
 @router.post("/requests/{req_id}/approve")
 async def approve_access_request(req_id: str, current_user: UserInDB = Depends(require_super_admin)):
     db = get_db()
-    
-    req = await db["access_requests"].find_one({"_id": ObjectId(req_id)})
+
+    req = await db["access_requests"].find_one({"_id": _as_object_id(req_id)})
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
-        
-    if req.get("status") != "pending":
+
+    if str(req.get("status") or "").lower() != "pending":
         raise HTTPException(status_code=400, detail="Request is already processed")
-        
-    # Create Organization
-    org_data = Organization(name=req["company"], status="active").dict()
+
+    email = req.get("email")
+    company = req.get("company") or req.get("company_name")
+    name = req.get("name") or req.get("contact_name")
+    pw_hash = next((req[k] for k in _SECRET_KEYS if req.get(k)), None)
+
+    if not email or not company:
+        raise HTTPException(status_code=400, detail="This request is missing an email or company name — reject it and ask the company to submit again.")
+    if not pw_hash:
+        raise HTTPException(status_code=400, detail="This request has no password on file (it predates the current form). Reject it and ask the company to submit again.")
+
+    # Guard against a race / stale request where the email now belongs to a real user.
+    if await db["users"].find_one({"email": email}):
+        await db["access_requests"].update_one({"_id": req["_id"]}, {"$set": {"status": "approved"}})
+        raise HTTPException(status_code=400, detail="An account already exists for this email.")
+
+    org_data = Organization(name=company, status="active").dict()
     await db["organizations"].insert_one(org_data)
     org_id = org_data["id"]
-    
-    # Create Admin User using stored hashed password
+
     user_data = UserInDB(
-        name=req["name"],
-        email=req["email"],
-        hashed_password=req["hashed_password"],
-        role="COMPANY_ADMIN",
+        name=name or email.split("@")[0],
+        email=email,
+        hashed_password=pw_hash,
+        role="ORGANIZATION_ADMIN",
         organization_id=org_id,
-        status="active"
+        status="active",
     ).dict()
     await db["users"].insert_one(user_data)
-    
-    # Update request status
+
     await db["access_requests"].update_one(
-        {"_id": ObjectId(req_id)},
-        {"$set": {"status": "approved"}}
+        {"_id": req["_id"]},
+        {"$set": {"status": "approved", "reviewed_by": current_user.id, "reviewed_at": datetime.utcnow(),
+                  "organization_id": org_id}},
     )
-    
-    return {"message": "Request approved and account created successfully"}
+
+    return {"message": "Approved. The company can now sign in.", "organization_id": org_id}
 
 @router.post("/requests/{req_id}/reject")
 async def reject_access_request(req_id: str, current_user: UserInDB = Depends(require_super_admin)):
     db = get_db()
-    
-    req = await db["access_requests"].find_one({"_id": ObjectId(req_id)})
+
+    req = await db["access_requests"].find_one({"_id": _as_object_id(req_id)})
     if not req:
         raise HTTPException(status_code=404, detail="Request not found")
-        
-    # Update request status
+    if str(req.get("status") or "").lower() != "pending":
+        raise HTTPException(status_code=400, detail="Request is already processed")
+
     await db["access_requests"].update_one(
-        {"_id": ObjectId(req_id)},
-        {"$set": {"status": "rejected"}}
+        {"_id": req["_id"]},
+        {"$set": {"status": "rejected", "reviewed_by": current_user.id, "reviewed_at": datetime.utcnow()}},
     )
-    
+
     return {"message": "Request rejected"}
 
 @router.get("/companies")
@@ -129,16 +165,22 @@ async def get_all_companies(current_user: UserInDB = Depends(require_super_admin
         users_count = await db["users"].count_documents({"organization_id": org_id})
         jobs_count = await db["jobs_board"].count_documents({"organization_id": org_id})
         candidates_count = await db["candidates"].count_documents({"organization_id": org_id})
-        
+        interviews_count = await db["interviews"].count_documents({"organization_id": org_id})
+        admin = await db["users"].find_one(
+            {"organization_id": org_id, "role": "ORGANIZATION_ADMIN"}, {"_id": 0, "name": 1, "email": 1}
+        )
+
         companies.append({
             "id": org_id,
             "name": org.get("name"),
             "status": org.get("status"),
             "created_at": org.get("created_at"),
+            "admin": admin,
             "stats": {
                 "users": users_count,
                 "jobs": jobs_count,
-                "candidates": candidates_count
+                "candidates": candidates_count,
+                "interviews": interviews_count,
             }
         })
         
