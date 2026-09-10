@@ -4,7 +4,6 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { Loader2, LayoutGrid, Building2, Inbox, LogOut } from 'lucide-react';
 
 const NAV = [
@@ -84,7 +83,6 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
             ))}
           </nav>
           <span className="hidden text-sm font-semibold text-muted-foreground lg:block">Platform administration</span>
-          <ThemeToggle />
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto">
           <div className="mx-auto max-w-[1200px] px-6 py-8 lg:py-12">{children}</div>
