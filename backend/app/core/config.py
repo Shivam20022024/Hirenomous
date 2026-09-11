@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     TRIAL_DAYS: int = 7
     # Placeholder price — change to your real plan. Recharge extends access by
     # BILLING_PLAN_DAYS from whichever is later: now, or the current paid_until.
-    BILLING_PLAN_AMOUNT_INR: int = 999
+    BILLING_PLAN_AMOUNT_INR: int = 2999
     BILLING_PLAN_DAYS: int = 30
 
     # Email Settings

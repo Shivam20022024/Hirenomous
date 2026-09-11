@@ -24,7 +24,7 @@ export default function PricingPage() {
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-primary">Monthly plan</p>
             <p className="mt-2 text-4xl font-bold text-foreground">
-              ₹999<span className="text-base font-medium text-muted-foreground"> / 30 days</span>
+              ₹2,999<span className="text-base font-medium text-muted-foreground"> / 30 days</span>
             </p>
           </div>
           <span className="rounded-full bg-success/15 px-3 py-1 text-xs font-bold text-success">

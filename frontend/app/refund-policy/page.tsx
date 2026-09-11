@@ -14,7 +14,7 @@ export default function RefundPolicyPage() {
       <Section heading="Billing after the trial">
         <p>
           Once the free trial ends, continued access requires an active recharge. Recharges are billed in
-          advance for a fixed period (currently ₹999 for 30 days — see our{' '}
+          advance for a fixed period (currently ₹2,999 for 30 days — see our{' '}
           <a href="/pricing" className="text-primary hover:underline">Pricing</a> page for the current amount)
           and processed securely through Razorpay. Access remains active until the paid period ends.
         </p>
