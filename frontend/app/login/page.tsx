@@ -113,7 +113,18 @@ export default function LoginPage() {
           </Link>
         </p>
 
-        <div className="mt-6 border-t border-border pt-4 text-center">
+        <div className="mt-6 space-y-3 border-t border-border pt-4 text-center">
+          <nav className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <Link href="/pricing" className="hover:text-foreground hover:underline">Pricing</Link>
+            <span>·</span>
+            <Link href="/terms" className="hover:text-foreground hover:underline">Terms</Link>
+            <span>·</span>
+            <Link href="/privacy" className="hover:text-foreground hover:underline">Privacy</Link>
+            <span>·</span>
+            <Link href="/refund-policy" className="hover:text-foreground hover:underline">Refund Policy</Link>
+            <span>·</span>
+            <Link href="/contact" className="hover:text-foreground hover:underline">Contact</Link>
+          </nav>
           <p className="text-xs text-muted-foreground">
             A product by <span className="font-semibold text-foreground tracking-wide">NOVALANTIS</span>
           </p>
