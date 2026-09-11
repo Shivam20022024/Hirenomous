@@ -19,6 +19,11 @@ class Organization(OrganizationBase):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Billing (Razorpay). Access is allowed while now < paid_until OR now < trial_ends_at
+    # — see billing_service.compute_access, the single source of truth for this.
+    trial_ends_at: Optional[datetime] = None
+    paid_until: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 

@@ -70,6 +70,19 @@ class Settings(BaseSettings):
     INTERVIEW_MEDIA_DIR: str = "media/interviews"
     INTERVIEW_MEDIA_MAX_MB: int = 200
 
+    # Billing / subscription (Razorpay). A company gets TRIAL_DAYS free from the
+    # day its organization is created; after that (and after each paid period)
+    # it must recharge to keep using the app. Test-mode keys are free from the
+    # Razorpay dashboard — billing is fully wired but inert until keys are set.
+    RAZORPAY_KEY_ID: Optional[str] = None
+    RAZORPAY_KEY_SECRET: Optional[str] = None
+    RAZORPAY_WEBHOOK_SECRET: Optional[str] = None
+    TRIAL_DAYS: int = 7
+    # Placeholder price — change to your real plan. Recharge extends access by
+    # BILLING_PLAN_DAYS from whichever is later: now, or the current paid_until.
+    BILLING_PLAN_AMOUNT_INR: int = 999
+    BILLING_PLAN_DAYS: int = 30
+
     # Email Settings
     SMTP_HOST: Optional[str] = None
     SMTP_PORT: int = 587

@@ -4,6 +4,7 @@ from app.core.database import get_db
 from app.models.user import UserInDB, Organization
 from app.api.deps import require_super_admin
 from app.core.auth import get_password_hash
+from app.services import billing_service
 from pydantic import BaseModel
 from bson import ObjectId
 
@@ -12,6 +13,10 @@ class CreateCompanyRequest(BaseModel):
     admin_name: str
     admin_email: str
     admin_password: str
+
+
+class GrantAccessRequest(BaseModel):
+    days: int = 30
 
 router = APIRouter()
 
@@ -113,7 +118,10 @@ async def approve_access_request(req_id: str, current_user: UserInDB = Depends(r
         raise HTTPException(status_code=400, detail="An account already exists for this email.")
 
     # contact_email brands candidate emails: signed "<Company> Hiring Team", Reply-To here.
-    org_data = Organization(name=company, status="active", contact_email=email).dict()
+    # trial_ends_at starts the free trial clock from the moment the company is approved.
+    org_data = Organization(
+        name=company, status="active", contact_email=email, trial_ends_at=billing_service.trial_end(),
+    ).dict()
     await db["organizations"].insert_one(org_data)
     org_id = org_data["id"]
 
@@ -170,6 +178,7 @@ async def get_all_companies(current_user: UserInDB = Depends(require_super_admin
         admin = await db["users"].find_one(
             {"organization_id": org_id, "role": "ORGANIZATION_ADMIN"}, {"_id": 0, "name": 1, "email": 1}
         )
+        billing = billing_service.compute_access(org)
 
         companies.append({
             "id": org_id,
@@ -177,6 +186,7 @@ async def get_all_companies(current_user: UserInDB = Depends(require_super_admin
             "status": org.get("status"),
             "created_at": org.get("created_at"),
             "admin": admin,
+            "billing": billing,
             "stats": {
                 "users": users_count,
                 "jobs": jobs_count,
@@ -197,7 +207,10 @@ async def create_company(request: CreateCompanyRequest, current_user: UserInDB =
         raise HTTPException(status_code=400, detail="User with this email already exists")
         
     # Create Organization
-    org_data = Organization(name=request.company_name, status="active", contact_email=request.admin_email).dict()
+    org_data = Organization(
+        name=request.company_name, status="active", contact_email=request.admin_email,
+        trial_ends_at=billing_service.trial_end(),
+    ).dict()
     await db["organizations"].insert_one(org_data)
     org_id = org_data["id"]
     
@@ -224,6 +237,19 @@ async def create_company(request: CreateCompanyRequest, current_user: UserInDB =
             "name": request.admin_name
         }
     }
+
+@router.post("/companies/{org_id}/grant-access")
+async def grant_company_access(
+    org_id: str, payload: GrantAccessRequest, current_user: UserInDB = Depends(require_super_admin)
+):
+    """Extend a company's paid_until without a payment — comps, offline deals."""
+    db = get_db()
+    if not await db["organizations"].find_one({"id": org_id}, {"_id": 0, "id": 1}):
+        raise HTTPException(status_code=404, detail="Company not found")
+    if payload.days <= 0 or payload.days > 3650:
+        raise HTTPException(status_code=400, detail="days must be between 1 and 3650")
+    return await billing_service.grant_free_access(org_id=org_id, days=payload.days)
+
 
 @router.get("/users")
 async def get_all_users(current_user: UserInDB = Depends(require_super_admin)):

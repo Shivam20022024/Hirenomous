@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { BrandLogo } from '@/components/brand-logo';
+import { BillingGate } from '@/components/billing-gate';
 import {
   BarChart3,
   ChevronDown,
@@ -136,6 +137,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         </header>
+
+        <BillingGate />
 
         {showViewAsBanner && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/40 bg-warning/10 px-5 py-2.5 text-sm lg:px-10">

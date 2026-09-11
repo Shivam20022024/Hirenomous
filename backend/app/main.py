@@ -1,15 +1,21 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import resume_routes, voice_routes, demo_voice_routes, simulation_routes, email_routes, job_board_routes, bolna_routes, auth_routes, superadmin_routes, analytics_routes, ai_recruiter_routes, interview_routes
+from app.api.routes import resume_routes, voice_routes, demo_voice_routes, simulation_routes, email_routes, job_board_routes, bolna_routes, auth_routes, superadmin_routes, analytics_routes, ai_recruiter_routes, interview_routes, billing_routes
 from app.core.database import connect_to_mongo, close_mongo_connection
 from app.core.config import settings
+from app.core.billing_gate import BillingGateMiddleware
 from app.services.interview_service import ensure_interview_indexes
+from app.services.billing_service import ensure_billing_indexes
 
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
     description="Production-ready AI Hiring Automation Pipeline"
 )
+
+# Billing gate first, so CORSMiddleware (added last -> outermost) still adds
+# CORS headers to the 402 responses it returns.
+app.add_middleware(BillingGateMiddleware)
 
 # CORS
 app.add_middleware(
@@ -27,6 +33,7 @@ async def startup_db_client():
     print(f"DEBUG: Connecting to database defined in .env.local...")
     await connect_to_mongo()
     await ensure_interview_indexes()
+    await ensure_billing_indexes()
     print(f"API is ready on port 8001")
 
 
@@ -47,6 +54,7 @@ app.include_router(analytics_routes.router, prefix="/analytics", tags=["Analytic
 app.include_router(ai_recruiter_routes.router, prefix="/api", tags=["AI Recruiter"])
 app.include_router(interview_routes.recruiter_router, tags=["AI Interview"])
 app.include_router(interview_routes.candidate_router, tags=["AI Interview (Candidate)"])
+app.include_router(billing_routes.router, prefix="/api", tags=["Billing"])
 
 
 @app.get("/")
