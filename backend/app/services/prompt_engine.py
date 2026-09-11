@@ -77,11 +77,71 @@ INTEREST RULES
 class PromptEngine:
     @staticmethod
     async def generate_screening_questions(job_title: str, job_description: str, skills: List[str], experience: str) -> List[Dict[str, Any]]:
-        """Returns the strictly required screening questions for the job."""
-        return [
+        """LLM-generated phone-screening questions tailored to this specific job.
+        Each question must be answerable verbally in one short sentence. Falls back
+        to a safe generic pair if the LLM call fails."""
+        fallback = [
             {"question": f"Are you interested in the {job_title} opportunity?", "category": "Interest", "required": True, "order": 1},
-            {"question": "How many years of total work experience do you have?", "category": "Experience", "required": True, "order": 2}
+            {"question": "Are you available to start immediately, or is there a notice period?", "category": "Availability", "required": True, "order": 2},
         ]
+
+        system = (
+            "You write short screening questions for an AI phone-call recruiter. Each question must be "
+            "answerable verbally in one short sentence. NEVER ask for 'years of experience' on a role that "
+            "is explicitly for freshers/interns/students — ask about graduation year, relevant coursework, "
+            "or projects instead. Tailor every question to the specific job given."
+        )
+        user = f"""
+Job title: {job_title}
+Job description: {(job_description or '')[:1500]}
+Required skills: {', '.join(skills) if skills else 'not specified'}
+Experience expected: {experience or 'not specified'}
+
+Write exactly 3 screening questions for a phone call, in this order:
+1. A yes/no interest question about this specific role (category "Interest").
+2. A question that fits the ACTUAL experience level expected above — for a fresher/intern/student role ask
+   about graduation year, relevant coursework, or project experience; for an experienced-hire role ask about
+   years of relevant experience or notice period (category "Experience" or "Availability").
+3. One question that checks for a specific skill or qualification actually listed above (category "Skill").
+
+Return STRICT JSON: {{"questions": [{{"question": "...", "category": "..."}}]}}
+"""
+        try:
+            headers = {"Authorization": f"Bearer {settings.OPENROUTER_API_KEY}", "Content-Type": "application/json"}
+            payload = {
+                "model": settings.OPENROUTER_MODEL,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.3,
+            }
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(settings.OPENROUTER_API_URL, headers=headers, json=payload)
+                resp.raise_for_status()
+                data = json.loads(resp.json()["choices"][0]["message"]["content"])
+
+            questions = []
+            for i, q in enumerate(data.get("questions") or [], start=1):
+                text = str(q.get("question", "")).strip()
+                if text:
+                    questions.append({
+                        "question": text,
+                        "category": str(q.get("category") or "General"),
+                        "required": True,
+                        "order": i,
+                    })
+                if len(questions) == 3:
+                    break
+
+            if len(questions) >= 2:
+                return questions
+            logger.warning("generate_screening_questions LLM returned too few usable questions; using fallback.")
+        except Exception as exc:
+            logger.warning(f"generate_screening_questions LLM failed, using fallback: {exc}")
+
+        return fallback
 
     @staticmethod
     def generate_prompt(job: dict, config: dict, candidate_name: str = "the candidate", company_name: str = settings.APP_NAME) -> str:
