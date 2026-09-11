@@ -12,6 +12,7 @@ import { Loader2, LogIn, Gift } from 'lucide-react';
 
 function billingBadge(billing: any) {
   if (!billing) return null;
+  if (billing.status === 'legacy') return <Badge variant="neutral">No trial (pre-billing)</Badge>;
   if (billing.status === 'active') return <Badge variant="success">Paid</Badge>;
   if (billing.status === 'trial') return <Badge variant="warning">Trial · {billing.days_left}d left</Badge>;
   return <Badge variant="destructive">Expired</Badge>;

@@ -51,9 +51,22 @@ def trial_end(from_dt: Optional[datetime] = None) -> datetime:
 def compute_access(org: Optional[dict]) -> Dict[str, Any]:
     """The single source of truth for whether an org can use the app right now."""
     now = datetime.utcnow()
-    org = org or {}
+
+    if org is None:
+        # No such org (deleted, bad org_id on the token) — nothing to grandfather.
+        return {"access": False, "status": "expired", "trial_ends_at": None,
+                "paid_until": None, "days_left": 0}
+
     trial_ends_at = org.get("trial_ends_at")
     paid_until = org.get("paid_until")
+
+    if trial_ends_at is None and paid_until is None:
+        # Org predates this feature — it was never given a trial, so there is
+        # nothing to have "expired". Never retroactively lock out an existing
+        # company; billing only applies to orgs created after this shipped
+        # (they always get trial_ends_at set at creation).
+        return {"access": True, "status": "legacy", "trial_ends_at": None,
+                "paid_until": None, "days_left": None}
 
     if paid_until and paid_until > now:
         return {"access": True, "status": "active", "trial_ends_at": trial_ends_at,
