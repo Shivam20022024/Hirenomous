@@ -6,13 +6,18 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.services.email_service import EmailService
 
-from app.api.deps import get_context_organization_id
+from app.api.deps import get_context_organization_id, get_current_active_user
+from app.models.user import UserInDB
 from fastapi import Depends
 
 router = APIRouter(prefix="/email")
 
 @router.post("/send-shortlisted")
-async def send_shortlisted_emails(job_id: Optional[str] = None, org_id: str = Depends(get_context_organization_id)):
+async def send_shortlisted_emails(
+    job_id: Optional[str] = None,
+    org_id: str = Depends(get_context_organization_id),
+    current_user: UserInDB = Depends(get_current_active_user),
+):
     if not EmailService.is_configured():
         raise HTTPException(
             status_code=500,
@@ -78,7 +83,9 @@ async def send_shortlisted_emails(job_id: Optional[str] = None, org_id: str = De
     # send_bulk_shortlist_emails does blocking network I/O (smtplib, requests) per
     # candidate. Run it in a worker thread so a slow/hung SMTP connection can't
     # freeze the single asyncio event loop for every other request on the server.
-    result = await run_in_threadpool(EmailService.send_bulk_shortlist_emails, candidates, company_name, org)
+    result = await run_in_threadpool(
+        EmailService.send_bulk_shortlist_emails, candidates, company_name, org, current_user.name
+    )
 
     # Mark emailed candidates so a second click does not re-send to them.
     if result.get("sent_ids"):

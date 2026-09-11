@@ -266,10 +266,12 @@ class InterviewService:
         job_title = (job or {}).get("title") or candidate.get("role") or "the position"
         interview_url = f"{settings.INTERVIEW_PUBLIC_BASE_URL.rstrip('/')}/interview/{token}"
 
-        # Candidate-facing mail is branded with the hiring company (multi-tenant).
+        # Candidate-facing mail is branded with the hiring company (multi-tenant),
+        # signed by the recruiter who actually sent the invite.
         org = await db.organizations.find_one({"id": org_id}, {"_id": 0, "name": 1, "contact_email": 1, "reply_to": 1})
         company_name = (org or {}).get("name") or settings.APP_NAME
-        sender = EmailService.sender_for(org)
+        recruiter = await db.users.find_one({"id": recruiter_id}, {"_id": 0, "name": 1}) if recruiter_id else None
+        sender = EmailService.sender_for(org, (recruiter or {}).get("name"))
 
         email = (candidate.get("email") or "").strip()
         result = {"sent": False, "reason": None}
@@ -582,6 +584,8 @@ class InterviewService:
         candidate = await db.candidates.find_one({"id": interview["candidate_id"], "organization_id": org_id})
         org = await db.organizations.find_one({"id": org_id}, {"_id": 0, "name": 1, "contact_email": 1, "reply_to": 1})
         company_name = (org or {}).get("name") or settings.APP_NAME
+        recruiter = await db.users.find_one({"id": recruiter_id}, {"_id": 0, "name": 1}) if recruiter_id else None
+        sender_name = (recruiter or {}).get("name")
         email_result = None
 
         if decision == "select":
@@ -599,7 +603,7 @@ class InterviewService:
                 if job and job.get("skills"):
                     cand_for_email["job_skills_for_email"] = job["skills"]
             email_result = await run_in_threadpool(
-                EmailService.send_selection_email, cand_for_email, company_name, org
+                EmailService.send_selection_email, cand_for_email, company_name, org, sender_name
             )
             await AuditService.record(
                 organization_id=org_id, event_type="recruiter_selected", actor_type="recruiter",
@@ -619,7 +623,7 @@ class InterviewService:
                 if job and job.get("title"):
                     cand_for_email["job_title_for_email"] = job["title"]
             email_result = await run_in_threadpool(
-                EmailService.send_rejection_email, cand_for_email, company_name, org
+                EmailService.send_rejection_email, cand_for_email, company_name, org, sender_name
             )
             await AuditService.record(
                 organization_id=org_id, event_type="recruiter_rejected", actor_type="recruiter",

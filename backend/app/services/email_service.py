@@ -11,14 +11,17 @@ logger = logging.getLogger(__name__)
 
 class EmailService:
     @staticmethod
-    def sender_for(org: Optional[Dict[str, Any]]) -> Dict[str, Optional[str]]:
+    def sender_for(org: Optional[Dict[str, Any]], sender_name: Optional[str] = None) -> Dict[str, Optional[str]]:
         """Per-company sender identity for candidate-facing mail. The From address
         stays the one verified sending address, but the display name and Reply-To
-        belong to the hiring company (multi-tenant branding)."""
+        belong to the hiring company (multi-tenant branding). `sender_name`, when
+        given, is the recruiter who actually took the action — shown alongside the
+        company name so a candidate sees who at the company reached out."""
         org = org or {}
         name = org.get("name") or settings.APP_NAME
+        display = f"{sender_name} - {name} Hiring Team" if sender_name else f"{name} Hiring Team"
         return {
-            "from_name": f"{name} Hiring Team",
+            "from_name": display,
             "reply_to": org.get("reply_to") or org.get("contact_email"),
         }
 
@@ -181,7 +184,7 @@ class EmailService:
         return subject, body
 
     @staticmethod
-    def send_selection_email(candidate: dict, company_name: str, org: Optional[dict] = None) -> dict:
+    def send_selection_email(candidate: dict, company_name: str, org: Optional[dict] = None, sender_name: Optional[str] = None) -> dict:
         """Explicitly send the progress email to a SINGLE candidate at the
         'selected' stage. Reuses `build_shortlist_email`. Only ever called from an
         explicit recruiter 'Select' action — never from any interview lifecycle."""
@@ -191,7 +194,7 @@ class EmailService:
             return {"sent": 0, "skipped": 1, "failed": 0, "errors": [f"{name}: no valid email"]}
         try:
             subject, body = EmailService.build_shortlist_email(candidate, company_name, stage="selected")
-            EmailService.send_email(email, subject, body, **EmailService.sender_for(org))
+            EmailService.send_email(email, subject, body, **EmailService.sender_for(org, sender_name))
             return {"sent": 1, "skipped": 0, "failed": 0, "errors": []}
         except Exception as exc:
             return {"sent": 0, "skipped": 0, "failed": 1, "errors": [f"{name} <{email}>: {exc}"]}
@@ -223,7 +226,7 @@ class EmailService:
         return subject, body
 
     @staticmethod
-    def send_rejection_email(candidate: dict, company_name: str, org: Optional[dict] = None) -> dict:
+    def send_rejection_email(candidate: dict, company_name: str, org: Optional[dict] = None, sender_name: Optional[str] = None) -> dict:
         """Send the post-interview rejection email to a SINGLE candidate. Only ever
         called from an explicit recruiter 'Reject' action on a completed interview."""
         email = (candidate.get("email") or "").strip()
@@ -232,7 +235,7 @@ class EmailService:
             return {"sent": 0, "skipped": 1, "failed": 0, "errors": [f"{name}: no valid email"]}
         try:
             subject, body = EmailService.build_rejection_email(candidate, company_name)
-            EmailService.send_email(email, subject, body, **EmailService.sender_for(org))
+            EmailService.send_email(email, subject, body, **EmailService.sender_for(org, sender_name))
             return {"sent": 1, "skipped": 0, "failed": 0, "errors": []}
         except Exception as exc:
             return {"sent": 0, "skipped": 0, "failed": 1, "errors": [f"{name} <{email}>: {exc}"]}
@@ -262,13 +265,13 @@ class EmailService:
             server.send_message(message)
 
     @staticmethod
-    def send_bulk_shortlist_emails(candidates: Iterable[dict], company_name: str, org: Optional[dict] = None) -> dict:
+    def send_bulk_shortlist_emails(candidates: Iterable[dict], company_name: str, org: Optional[dict] = None, sender_name: Optional[str] = None) -> dict:
         sent = 0
         skipped = 0
         failed = 0
         errors = []
         sent_ids = []
-        sender = EmailService.sender_for(org)
+        sender = EmailService.sender_for(org, sender_name)
 
         for candidate in candidates:
 
