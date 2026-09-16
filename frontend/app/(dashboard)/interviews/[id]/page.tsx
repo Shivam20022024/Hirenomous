@@ -53,6 +53,7 @@ export default function InterviewReportPage() {
   const [recording, setRecording] = useState<{ url: string; title: string } | null>(null);
   const [recLoading, setRecLoading] = useState<number | null>(null);
   const [integBusy, setIntegBusy] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -124,6 +125,26 @@ export default function InterviewReportPage() {
       alert(err.message);
     } finally {
       setIntegBusy(false);
+    }
+  };
+
+  const resendInvite = async () => {
+    const isCompleted = report?.status === 'completed';
+    const warning = isCompleted
+      ? 'This will send a fresh interview link and CLEAR the candidate\'s previous answers, score and recruiter decision so they get a genuine retake. Continue?'
+      : 'Send a new interview link to this candidate? The previous link will stop working.';
+    if (!confirm(warning)) return;
+    setResendBusy(true);
+    try {
+      const res = await fetchApi(`/interviews/${id}/send-invite`, { method: 'POST' });
+      alert(res?.invite?.sent
+        ? 'A new interview link has been emailed to the candidate.'
+        : `Link generated, but the email could not be sent (${res?.invite?.reason || 'SMTP not configured'}). Share it manually: ${res?.interview_url || ''}`);
+      await load();
+    } catch (err: any) {
+      alert(err.message || 'Failed to resend the interview link.');
+    } finally {
+      setResendBusy(false);
     }
   };
 
@@ -239,6 +260,9 @@ export default function InterviewReportPage() {
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-6">
             <Button variant="outline" size="lg" onClick={openTranscript}>
               <MessageSquare size={16} /> View Transcript
+            </Button>
+            <Button size="lg" variant="outline" onClick={resendInvite} disabled={resendBusy}>
+              {resendBusy ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Resend Interview Link
             </Button>
             {decided ? (
               <span className="inline-flex items-center gap-2 rounded-xl bg-muted px-4 py-2.5 text-sm font-bold text-muted-foreground">
@@ -462,6 +486,9 @@ export default function InterviewReportPage() {
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-6">
             <Button variant="outline" size="lg" onClick={openTranscript}>
               <MessageSquare size={16} /> View Transcript
+            </Button>
+            <Button size="lg" variant="outline" onClick={resendInvite} disabled={resendBusy}>
+              {resendBusy ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} Resend Interview Link
             </Button>
 
             {decided ? (

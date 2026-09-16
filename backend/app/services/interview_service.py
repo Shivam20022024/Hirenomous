@@ -28,6 +28,7 @@ from app.core.interview_auth import (
 from app.models.interview import (
     Interview,
     InterviewQuestion,
+    InterviewScores,
     TERMINAL_STATUSES,
     RECRUITER_DECISIONS,
 )
@@ -305,12 +306,17 @@ class InterviewService:
 
     @staticmethod
     async def resend_invite(*, org_id: str, recruiter_id: Optional[str], interview_id: str) -> dict:
+        """Rotate the token and re-send the invite email. If the interview had
+        already reached a terminal state (e.g. the candidate submitted by
+        mistake, or the link expired/failed), this is a full retake: prior
+        answers, transcript, scores and recruiter decision are cleared so the
+        candidate gets a genuinely fresh attempt rather than resuming stale data."""
         db = get_db()
         interview = await db.interviews.find_one({"id": interview_id, "organization_id": org_id})
         if not interview:
             raise HTTPException(status_code=404, detail="Interview not found")
-        if interview.get("status") in ("completed", "cancelled"):
-            raise HTTPException(status_code=409, detail=f"Cannot resend — interview is {interview['status']}.")
+        if interview.get("status") == "cancelled":
+            raise HTTPException(status_code=409, detail="Cannot resend — this interview was cancelled.")
 
         candidate = await db.candidates.find_one({"id": interview["candidate_id"], "organization_id": org_id})
         if not candidate:
@@ -321,21 +327,56 @@ class InterviewService:
 
         # Rotate the token on every resend — invalidates any previously shared link.
         token = generate_interview_token()
-        await db.interviews.update_one(
-            {"id": interview_id},
-            {"$set": {
-                "token_hash": hash_interview_token(token),
-                "token_expires_at": token_expiry(),
-                "updated_at": datetime.utcnow(),
-            }},
-        )
+        update_fields: Dict[str, Any] = {
+            "token_hash": hash_interview_token(token),
+            "token_expires_at": token_expiry(),
+            "updated_at": datetime.utcnow(),
+        }
+        was_terminal = interview.get("status") in TERMINAL_STATUSES
+        if was_terminal:
+            update_fields.update({
+                "status": "invited",
+                "evaluation_status": "pending",
+                "answers": [],
+                "transcript": [],
+                "scores": InterviewScores().model_dump(),
+                "recommendation": None,
+                "ai_report": {},
+                "integrity": {},
+                "session_meta": [],
+                "started_at": None,
+                "completed_at": None,
+                "duration_seconds": None,
+                "email_verified": False,
+                "verification_attempts": 0,
+                "progress": {"plan_index": 0, "followups_used": 0, "pending_question": None},
+                "recruiter_decision": None,
+                "recruiter_feedback": None,
+                "recruiter_id": None,
+                "decided_at": None,
+            })
+        await db.interviews.update_one({"id": interview_id}, {"$set": update_fields})
+
+        if was_terminal:
+            # A retake moves the candidate back into the interview stage, undoing
+            # any decision that had already been made off the discarded attempt.
+            await db.candidates.update_one(
+                {"id": interview["candidate_id"], "organization_id": org_id},
+                {"$set": {"status": "interview", "last_interaction": datetime.utcnow()}},
+            )
+
         interview = await db.interviews.find_one({"id": interview_id})
         result = await InterviewService._deliver_invite(
             org_id=org_id, recruiter_id=recruiter_id, interview_doc=interview,
             candidate=candidate, job=job, token=token,
         )
         interview_url = f"{settings.INTERVIEW_PUBLIC_BASE_URL.rstrip('/')}/interview/{token}"
-        return {"invite": result, "interview_url": interview_url}
+        await AuditService.record(
+            organization_id=org_id, event_type="interview_resent", actor_type="recruiter",
+            actor_id=recruiter_id, candidate_id=interview["candidate_id"], job_id=interview.get("job_id"),
+            interview_id=interview_id, payload={"was_reset": was_terminal, "email_sent": result.get("sent")},
+        )
+        return {"invite": result, "interview_url": interview_url, "reset": was_terminal}
 
     @staticmethod
     async def bulk_invite(
