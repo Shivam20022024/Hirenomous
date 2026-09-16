@@ -177,7 +177,9 @@ class EmailService:
             "- Sit in a quiet, well-lit place and keep your face visible.\n"
             "- Ensure a stable internet connection.\n"
             "- Complete the interview independently and in one sitting.\n\n"
-            "This link is personal to you and will expire, so please complete the interview soon.\n\n"
+            f"This link is personal to you and is valid for {settings.INTERVIEW_TOKEN_TTL_HOURS} hours only "
+            "from the time this email was sent — after that it will expire, so please complete the "
+            "interview well before then.\n\n"
             "Regards,\n"
             f"{company_name} Hiring Team"
         )

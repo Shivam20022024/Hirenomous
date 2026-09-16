@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     # AI Interview Settings
     # Public base URL of the candidate-facing frontend, used to build interview links.
     INTERVIEW_PUBLIC_BASE_URL: str = "http://localhost:3000"
-    INTERVIEW_TOKEN_TTL_HOURS: int = 72
+    INTERVIEW_TOKEN_TTL_HOURS: int = 24
     INTERVIEW_QUESTION_COUNT: int = 8
     INTERVIEW_MAX_FOLLOWUPS: int = 3
     INTERVIEW_TTS_VOICE: str = "alloy"
