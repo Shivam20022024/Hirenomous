@@ -56,7 +56,11 @@ export default function CandidatesPage() {
 
   const handleExport = async () => {
     try {
-      const blob = await fetchApi(`/export/candidates${jobId ? `?job_id=${jobId}` : ''}`);
+      const params = new URLSearchParams();
+      if (jobId) params.set('job_id', jobId);
+      if (statusFilter) params.set('status', statusFilter);
+      const qs = params.toString();
+      const blob = await fetchApi(`/export/candidates${qs ? `?${qs}` : ''}`);
       if (blob) {
         const url = window.URL.createObjectURL(blob as Blob);
         const a = document.createElement('a');

@@ -672,11 +672,17 @@ async def get_final_candidates(job_id: str = None, org_id: str = Depends(get_con
     return results
 
 @router.get("/export/candidates")
-async def export_candidates(date: str = None, job_id: str = None, org_id: str = Depends(get_context_organization_id)):
+async def export_candidates(
+    date: str = None, job_id: str = None, status: str = None,
+    org_id: str = Depends(get_context_organization_id),
+):
     db = get_db()
     query = {"organization_id": org_id}
     if job_id:
         query["job_id"] = job_id
+    if status:
+        # Candidate status is stored lowercase; the filter UI sends it uppercase.
+        query["status"] = {"$regex": f"^{re.escape(status)}$", "$options": "i"}
     if date:
         try:
             from datetime import timedelta
@@ -691,18 +697,19 @@ async def export_candidates(date: str = None, job_id: str = None, org_id: str = 
 
     import tempfile
     from openpyxl import Workbook
-    from app.services.excel_service import ExcelService
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Candidates"
-    ws.append(ExcelService.HEADERS)
+    ws.append(["Candidate ID", "Name", "Role", "Email", "Phone", "Score", "Status", "Interest", "Timestamp"])
 
     for c in candidates:
         row = [
             str(c.get("id", "N/A")),
             c.get("name", "N/A"),
+            c.get("role", "N/A"),
             c.get("email", "N/A"),
+            c.get("phone", "N/A"),
             f"{c.get('resume_score', 0)}%",
             c.get("status", "pending"),
             c.get("interest", "pending"),
