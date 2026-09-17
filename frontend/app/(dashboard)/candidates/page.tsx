@@ -135,6 +135,12 @@ export default function CandidatesPage() {
     if (!confirm(`Invite ${candidate.name} to an AI interview? This does NOT select the candidate.`)) return;
     setActionLoading(true);
     try {
+      if (String(candidate.status).toLowerCase() !== 'interested') {
+        await fetchApi(`/candidates/${candidate.candidate_id}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ status: 'interested' })
+        });
+      }
       const res = await fetchApi('/interviews', {
         method: 'POST',
         body: JSON.stringify({ candidate_id: candidate.candidate_id, job_id: candidate.job_id || null }),
@@ -379,16 +385,16 @@ export default function CandidatesPage() {
                 </div>
 
                 {/* AI Interview actions — mirror the hiring flow: invite (interested) -> view (in progress) -> report + decide (completed) */}
-                {(['interested', 'interview', 'interview_completed'].includes(String(selectedCandidate.status).toLowerCase()) || selectedCandidate.latest_interview_id) && (
-                  <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
-                    <ClipboardCheck size={16} className="text-primary" />
-                    <span className="text-sm font-semibold text-foreground mr-1">AI Interview</span>
+                <div className="flex flex-wrap items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <ClipboardCheck size={16} className="text-primary" />
+                  <span className="text-sm font-semibold text-foreground mr-1">AI Interview</span>
 
-                    {String(selectedCandidate.status).toLowerCase() === 'interested' && !selectedCandidate.latest_interview_id && (
-                      <Button size="sm" onClick={() => handleInviteInterview(selectedCandidate)} disabled={actionLoading}>
-                        {actionLoading ? <Loader2 size={13} className="animate-spin" /> : <ClipboardCheck size={13} />} Invite to AI Interview
-                      </Button>
-                    )}
+                  {!selectedCandidate.latest_interview_id && (
+                    <Button size="sm" onClick={() => handleInviteInterview(selectedCandidate)} disabled={actionLoading}>
+                      {actionLoading ? <Loader2 size={13} className="animate-spin" /> : <ClipboardCheck size={13} />} 
+                      {String(selectedCandidate.status).toLowerCase() === 'interested' ? 'Invite to AI Interview' : 'Mark Interested & Invite'}
+                    </Button>
+                  )}
 
                     {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview' && (
                       <Button size="sm" variant="outline" onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}>
@@ -416,7 +422,6 @@ export default function CandidatesPage() {
                       </Button>
                     )}
                   </div>
-                )}
 
                 {selectedCandidate.summary && (
                   <div>
