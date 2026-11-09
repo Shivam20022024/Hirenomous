@@ -468,6 +468,8 @@ async def get_dashboard_data(db, org_id: str):
         "minutes_used": minutes_used,
         "minutes_included": included_minutes,
         "minutes_remaining": minutes_remaining,
+        "trial_free_seconds": TRIAL_FREE_SECONDS if is_trial else 0,
+        "trial_remaining_seconds": int(minutes_remaining * 60) if is_trial else 0,
         "total_spending": total_spending,
         "breakdown": {
             k: {"minutes": round(v["seconds"] / 60.0, 1), "spending": round(v["cost"], 2)}

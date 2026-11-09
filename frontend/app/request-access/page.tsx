@@ -48,10 +48,18 @@ export default function RequestAccessPage() {
       <div className="w-full max-w-md space-y-7 rounded-2xl border border-border bg-card p-8 shadow-xl">
         <div className="text-center">
           <BrandLogo className="mx-auto h-12 w-12" />
-          <h1 className="mt-6 text-2xl font-bold tracking-tight text-foreground">Request company access</h1>
+          <h1 className="mt-6 text-2xl font-bold tracking-tight text-foreground">Company Access</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Tell us about your company. Once approved you can sign in with the email and password below.
+            Get your company started on Hirenomous with instant AI voice screening.
           </p>
+        </div>
+
+        <div className="rounded-xl border border-primary/30 bg-primary/10 p-4 text-center">
+          <p className="text-sm font-bold text-primary">⚡ Instant Access Available!</p>
+          <p className="mt-1 text-xs text-muted-foreground">Skip the approval queue and start interviewing with 10 free minutes immediately.</p>
+          <Link href="/register" className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-90 transition-opacity">
+            Start 10-Minute Free Trial →
+          </Link>
         </div>
 
         {done ? (

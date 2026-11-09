@@ -108,8 +108,8 @@ export default function LoginPage() {
 
         <p className="text-center text-sm text-muted-foreground">
           New company?{' '}
-          <Link href="/request-access" className="font-semibold text-primary hover:underline">
-            Request access
+          <Link href="/register" className="font-semibold text-primary hover:underline">
+            Start Free Trial (10 mins free)
           </Link>
         </p>
 

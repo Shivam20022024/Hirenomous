@@ -237,9 +237,21 @@ async def trigger_plivo_candidate_call(
     if not phone_number:
         raise HTTPException(status_code=400, detail="Candidate missing phone number")
 
+    # Organization telephony settings check (Personal provider / caller ID vs Shared line)
+    org = await db.organizations.find_one({"id": org_id})
+    tel = (org or {}).get("telephony", {})
+
     plivo_auth_id = settings.PLIVO_AUTH_ID or os.environ.get("PLIVO_AUTH_ID")
     plivo_auth_token = settings.PLIVO_AUTH_TOKEN or os.environ.get("PLIVO_AUTH_TOKEN")
     plivo_from_number = settings.PLIVO_PHONE_NUMBER or os.environ.get("PLIVO_PHONE_NUMBER", "+918065535758")
+
+    if tel.get("mode") == "custom" and tel.get("account_sid") and tel.get("auth_token"):
+        plivo_auth_id = tel["account_sid"]
+        plivo_auth_token = tel["auth_token"]
+        if tel.get("phone_number"):
+            plivo_from_number = tel["phone_number"]
+    elif tel.get("phone_number"):
+        plivo_from_number = tel["phone_number"]
 
     if not (plivo_auth_id and plivo_auth_token and plivo_from_number):
         raise HTTPException(status_code=500, detail="Plivo telephony is not configured in settings or environment")

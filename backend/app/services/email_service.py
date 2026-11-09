@@ -11,18 +11,17 @@ logger = logging.getLogger(__name__)
 
 class EmailService:
     @staticmethod
-    def sender_for(org: Optional[Dict[str, Any]], sender_name: Optional[str] = None) -> Dict[str, Optional[str]]:
-        """Per-company sender identity for candidate-facing mail. The From address
-        stays the one verified sending address, but the display name and Reply-To
-        belong to the hiring company (multi-tenant branding). `sender_name`, when
-        given, is the recruiter who actually took the action — shown alongside the
-        company name so a candidate sees who at the company reached out."""
+    def sender_for(org: Optional[Dict[str, Any]], sender_name: Optional[str] = None) -> Dict[str, Any]:
+        """Per-company sender identity for candidate-facing mail. Checks for company
+        custom email settings (custom display name, reply-to, and custom SMTP)."""
         org = org or {}
+        email_settings = org.get("email_settings") or {}
         name = org.get("name") or settings.APP_NAME
-        display = f"{sender_name} - {name} Hiring Team" if sender_name else f"{name} Hiring Team"
+        display = email_settings.get("sender_name") or (f"{sender_name} - {name} Hiring Team" if sender_name else f"{name} Hiring Team")
         return {
             "from_name": display,
-            "reply_to": org.get("reply_to") or org.get("contact_email"),
+            "reply_to": email_settings.get("reply_to") or org.get("reply_to") or org.get("contact_email"),
+            "custom_smtp": email_settings if email_settings.get("custom_smtp") and email_settings.get("smtp_host") else None,
         }
 
     @staticmethod
@@ -264,7 +263,34 @@ class EmailService:
     def send_email(
         to_email: str, subject: str, body: str, *,
         from_name: Optional[str] = None, reply_to: Optional[str] = None,
+        custom_smtp: Optional[Dict[str, Any]] = None,
     ) -> None:
+        # 1. If company has configured custom SMTP credentials, route via their mail server
+        if custom_smtp and custom_smtp.get("smtp_host"):
+            smtp_host = custom_smtp["smtp_host"]
+            smtp_port = int(custom_smtp.get("smtp_port") or 587)
+            smtp_user = custom_smtp.get("smtp_user") or ""
+            smtp_pass = custom_smtp.get("smtp_password") or ""
+            smtp_use_tls = custom_smtp.get("smtp_use_tls", True)
+            from_email = custom_smtp.get("sender_email") or smtp_user or settings.SMTP_FROM_EMAIL
+
+            msg = EmailMessage()
+            msg["From"] = formataddr((from_name, from_email)) if from_name else from_email
+            msg["To"] = to_email
+            msg["Subject"] = subject
+            if reply_to and "@" in reply_to:
+                msg["Reply-To"] = reply_to
+            msg.set_content(body)
+
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as server:
+                if smtp_use_tls:
+                    server.starttls()
+                if smtp_user and smtp_pass:
+                    server.login(smtp_user, smtp_pass)
+                server.send_message(msg)
+            return
+
+        # 2. Fall back to global platform SMTP
         if not EmailService.is_configured():
             raise RuntimeError(
                 "SMTP is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, and SMTP_FROM_EMAIL."

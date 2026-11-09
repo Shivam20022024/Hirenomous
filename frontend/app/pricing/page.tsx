@@ -42,10 +42,10 @@ export default function PricingPage() {
         </ul>
 
         <Link
-          href="/request-access"
+          href="/register"
           className="mt-8 flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90"
         >
-          Start your free trial
+          Start your free trial (10 mins free)
         </Link>
       </div>
 

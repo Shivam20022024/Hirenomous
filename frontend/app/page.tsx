@@ -219,14 +219,14 @@ const REASONS = [
 
 export default function RootPage() {
   const { user } = useAuth();
-  const primaryHref = user ? '/dashboard' : '/login';
+  const primaryHref = user ? '/dashboard' : '/register';
 
   return (
     <div className="theme-force-light min-h-screen bg-background">
       {/* Announcement strip */}
       <div className="bg-warning-surface/60 px-4 py-2 text-center text-xs font-semibold text-foreground">
-        New: the AI Hiring Assistant now writes tailored screening questions for every job.{' '}
-        <Link href={primaryHref} className="text-primary underline underline-offset-2">See how it works</Link>
+        New: AI voice screening with 10 free minutes included for every new company.{' '}
+        <Link href={primaryHref} className="text-primary underline underline-offset-2">Start free trial</Link>
       </div>
 
       {/* Hero (nav lives inside this band) */}
@@ -240,18 +240,16 @@ export default function RootPage() {
             <BrandLogo className="h-8 w-8 shrink-0" />
             <span className="text-base font-bold tracking-tight text-primary-foreground">Hireonomous</span>
           </div>
-          <div className="flex items-center gap-2">
-            <Link href={user ? '/dashboard' : '/login'} className="hidden text-sm font-semibold text-primary-foreground/90 hover:text-primary-foreground sm:inline">
+          <div className="flex items-center gap-3">
+            <Link href={user ? '/dashboard' : '/login'} className="text-sm font-semibold text-primary-foreground/90 hover:text-primary-foreground">
               {user ? 'Dashboard' : 'Log in'}
             </Link>
-            <a
-              href="https://novalantis.com/contact-us/"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full bg-primary-foreground px-4 py-2 text-sm font-bold text-primary shadow-sm"
+            <Link
+              href={primaryHref}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary-foreground px-4 py-2 text-sm font-bold text-primary shadow-sm hover:opacity-90"
             >
-              Contact us <ArrowRight size={14} />
-            </a>
+              {user ? 'Open App' : 'Start 10 Min Free'} <ArrowRight size={14} />
+            </Link>
           </div>
         </header>
 
@@ -398,7 +396,7 @@ export default function RootPage() {
               <p className="text-xs font-bold uppercase tracking-wide text-ink-foreground/50">Account</p>
               <ul className="mt-4 space-y-2.5 text-sm">
                 <li><Link href="/login" className="hover:text-ink-foreground">Log in</Link></li>
-                <li><Link href={primaryHref} className="hover:text-ink-foreground">Get started</Link></li>
+                <li><Link href={primaryHref} className="hover:text-ink-foreground">Get started (10 min free)</Link></li>
               </ul>
             </div>
             <div>
