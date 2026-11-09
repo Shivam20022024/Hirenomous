@@ -1,3 +1,15 @@
+export function getApiBaseUrl(): string {
+  if (typeof window !== 'undefined') {
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl && !envUrl.includes('127.0.0.1') && !envUrl.includes('localhost')) {
+      return envUrl;
+    }
+    const host = window.location.hostname || '127.0.0.1';
+    return `http://${host}:8001`;
+  }
+  return process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
+}
+
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
 
 export async function fetchApi(endpoint: string, options: RequestInit = {}) {
@@ -30,7 +42,8 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     delete headers['Content-Type'];
   }
 
-  const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
   
   const response = await fetch(url, {
     ...options,
