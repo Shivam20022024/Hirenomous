@@ -59,12 +59,16 @@ async def call_candidate(candidate_id: str, request: Request, org_id: str = Depe
 
     # 1. Try Plivo Telephony (Talkly voice stack: Plivo + Raya + Sarvam)
     org = await db.organizations.find_one({"id": org_id})
-    tel = (org or {}).get("telephony", {})
+    tel = (org or {}).get("telephony") or {
+        "mode": "shared",
+        "provider": "plivo",
+        "phone_number": settings.PLIVO_PHONE_NUMBER or "+918065535758"
+    }
 
     plivo_auth_id = settings.PLIVO_AUTH_ID or os.environ.get("PLIVO_AUTH_ID")
     plivo_auth_token = settings.PLIVO_AUTH_TOKEN or os.environ.get("PLIVO_AUTH_TOKEN")
     plivo_from_number = settings.PLIVO_PHONE_NUMBER or os.environ.get("PLIVO_PHONE_NUMBER", "+918065535758")
-    provider = getattr(settings, "TELEPHONY_PROVIDER", "plivo")
+    provider = tel.get("provider") or getattr(settings, "TELEPHONY_PROVIDER", "plivo")
 
     if tel.get("mode") == "custom" and tel.get("account_sid") and tel.get("auth_token"):
         plivo_auth_id = tel["account_sid"]
@@ -96,9 +100,24 @@ async def call_candidate(candidate_id: str, request: Request, org_id: str = Depe
                 "created_at": now
             })
 
-            proto = request.headers.get("x-forwarded-proto", "http")
-            host = request.headers.get("host", "localhost:8001")
-            base_url = settings.PUBLIC_BASE_URL or f"{proto}://{host}"
+            # Determine public webhook URL for Plivo callbacks
+            base_url = settings.PUBLIC_BASE_URL or getattr(settings, "BASE_URL", None)
+            if not base_url or "localhost" in base_url or "127.0.0.1" in base_url:
+                try:
+                    import httpx
+                    with httpx.Client(timeout=1.0) as client:
+                        r = client.get("http://127.0.0.1:4040/api/tunnels")
+                        if r.status_code == 200:
+                            tunnels = r.json().get("tunnels", [])
+                            if tunnels:
+                                base_url = tunnels[0].get("public_url")
+                except Exception:
+                    pass
+
+            if not base_url:
+                proto = request.headers.get("x-forwarded-proto", "http")
+                host = request.headers.get("host", "localhost:8001")
+                base_url = f"{proto}://{host}"
 
             plivo_res = await plivo_prov.trigger_outbound_call(
                 to_phone_number=phone_number,
@@ -133,9 +152,10 @@ async def call_candidate(candidate_id: str, request: Request, org_id: str = Depe
                 "message": f"Plivo call dispatched successfully from {plivo_from_number} to {phone_number}"
             }
         except Exception as e:
-            logger.warning(f"Plivo call initiation error: {e}. Falling back to Bolna if available.")
+            logger.error(f"Plivo call initiation error: {e}")
+            raise HTTPException(status_code=500, detail=f"Plivo calling failed: {str(e)}")
 
-    # 2. Fallback to Bolna.ai
+    # 2. Fallback to Bolna.ai (only if company explicitly configured bolna provider)
     try:
         call_result = await BolnaService.initiate_bolna_call(
             candidate_id=candidate_id,

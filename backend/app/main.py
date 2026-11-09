@@ -26,6 +26,60 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+import os
+import shutil
+import subprocess
+import httpx
+
+ngrok_process = None
+
+def ensure_ngrok_tunnel():
+    """Checks and starts ngrok tunnel if BASE_URL or PUBLIC_BASE_URL is set to an ngrok domain."""
+    global ngrok_process
+    base_url = (getattr(settings, "PUBLIC_BASE_URL", None) or getattr(settings, "BASE_URL", None) or os.environ.get("BASE_URL") or os.environ.get("PUBLIC_BASE_URL") or "").strip()
+    if "ngrok" not in base_url.lower():
+        return
+
+    # Check if ngrok is already running on port 4040
+    try:
+        with httpx.Client(timeout=1.0) as client:
+            req = client.get("http://127.0.0.1:4040/api/tunnels")
+            if req.status_code == 200:
+                data = req.json()
+                tunnels = [t.get("public_url", "") for t in data.get("tunnels", [])]
+                clean_base = base_url.rstrip("/")
+                if any(clean_base in t for t in tunnels):
+                    print(f"[AUTO-NGROK]: Public tunnel active at {base_url} -> port 8001")
+                    return
+    except Exception:
+        pass
+
+    # Find ngrok executable
+    ngrok_bin = shutil.which("ngrok")
+    if not ngrok_bin:
+        win_path = os.path.expanduser(r"~\AppData\Local\Microsoft\WindowsApps\ngrok.exe")
+        if os.path.exists(win_path):
+            ngrok_bin = win_path
+
+    if not ngrok_bin:
+        print("[AUTO-NGROK]: ngrok executable not found in PATH. Start manually if testing live phone calls.")
+        return
+
+    domain = base_url.replace("https://", "").replace("http://", "").split("/")[0]
+    cmd = [ngrok_bin, "http", "8001", "--url", domain]
+
+    try:
+        DETACHED_PROCESS = 0x00000008
+        ngrok_process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=DETACHED_PROCESS if os.name == 'nt' else 0
+        )
+        print(f"[AUTO-NGROK]: Automatically started ngrok tunnel: {base_url} -> http://localhost:8001")
+    except Exception as e:
+        print(f"[AUTO-NGROK]: Note: Could not auto-launch ngrok ({e}).")
+
 # Lifecycle events
 @app.on_event("startup")
 async def startup_db_client():
@@ -34,12 +88,20 @@ async def startup_db_client():
     await connect_to_mongo()
     await ensure_interview_indexes()
     await ensure_billing_indexes()
+    ensure_ngrok_tunnel()
     print(f"API is ready on port 8001")
 
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
     await close_mongo_connection()
+    global ngrok_process
+    if ngrok_process:
+        try:
+            ngrok_process.terminate()
+            print("[AUTO-NGROK]: ngrok tunnel stopped.")
+        except Exception:
+            pass
 
 # Routes
 app.include_router(auth_routes.router, prefix="/api/auth", tags=["Authentication"])

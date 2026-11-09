@@ -257,9 +257,23 @@ async def trigger_plivo_candidate_call(
         raise HTTPException(status_code=500, detail="Plivo telephony is not configured in settings or environment")
 
     # Determine base URL for webhook routing
-    proto = request.headers.get("x-forwarded-proto", "http")
-    host = request.headers.get("host", "localhost:8001")
-    base_url = f"{proto}://{host}"
+    base_url = settings.PUBLIC_BASE_URL or getattr(settings, "BASE_URL", None)
+    if not base_url or "localhost" in base_url or "127.0.0.1" in base_url:
+        try:
+            import httpx
+            with httpx.Client(timeout=1.0) as client:
+                r = client.get("http://127.0.0.1:4040/api/tunnels")
+                if r.status_code == 200:
+                    tunnels = r.json().get("tunnels", [])
+                    if tunnels:
+                        base_url = tunnels[0].get("public_url")
+        except Exception:
+            pass
+
+    if not base_url:
+        proto = request.headers.get("x-forwarded-proto", "http")
+        host = request.headers.get("host", "localhost:8001")
+        base_url = f"{proto}://{host}"
 
     plivo_prov = PlivoProvider(plivo_auth_id, plivo_auth_token, default_from=plivo_from_number)
     

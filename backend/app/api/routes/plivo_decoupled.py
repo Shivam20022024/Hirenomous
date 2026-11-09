@@ -158,6 +158,15 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
 
                 plivo_auth_id = settings.PLIVO_AUTH_ID or os.environ.get("PLIVO_AUTH_ID")
                 plivo_auth_token = settings.PLIVO_AUTH_TOKEN or os.environ.get("PLIVO_AUTH_TOKEN")
+                
+                org_id = company_id or (cdoc.get("organization_id") if cdoc else None)
+                if org_id and db is not None:
+                    org = await db.organizations.find_one({"id": org_id})
+                    tel = (org or {}).get("telephony", {})
+                    if tel.get("mode") == "custom" and tel.get("account_sid") and tel.get("auth_token"):
+                        plivo_auth_id = tel["account_sid"]
+                        plivo_auth_token = tel["auth_token"]
+
                 if call_uuid and plivo_auth_id and plivo_auth_token:
                     plivo_prov = PlivoProvider(plivo_auth_id, plivo_auth_token)
                     await plivo_prov.hangup_call(call_uuid)

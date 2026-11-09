@@ -64,7 +64,7 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-          
+
           <div className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-foreground">
