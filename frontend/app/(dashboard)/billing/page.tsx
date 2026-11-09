@@ -224,8 +224,10 @@ export default function BillingPage() {
                 ₹{(dashboard?.balance ?? 0).toFixed(2)}
               </p>
               <div className="mt-2 flex items-center gap-2">
-                <Badge variant={dashboard?.balance && dashboard.balance > 50 ? 'success' : 'warning'}>
-                  {dashboard?.balance && dashboard.balance > 0 ? 'Active Credits' : 'Low Balance'}
+                <Badge variant={dashboard?.is_trial && (dashboard?.minutes_remaining ?? 0) > 0 ? 'success' : (dashboard?.balance && dashboard.balance > 50 ? 'success' : 'warning')}>
+                  {dashboard?.is_trial && (dashboard?.minutes_remaining ?? 0) > 0
+                    ? `${dashboard.minutes_remaining}m Trial Active`
+                    : (dashboard?.balance && dashboard.balance > 0 ? 'Active Credits' : 'Low Balance')}
                 </Badge>
                 <span className="text-xs text-muted-foreground">{dashboard?.plan_name || 'Pay-As-You-Go'}</span>
               </div>
@@ -243,7 +245,9 @@ export default function BillingPage() {
                 {dashboard?.minutes_used ?? 0} <span className="text-sm font-normal text-muted-foreground">min</span>
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                {dashboard?.total_calls ?? 0} total interview calls made
+                {dashboard?.is_trial
+                  ? `${dashboard?.minutes_remaining ?? 10}m trial calling left`
+                  : `${dashboard?.total_calls ?? 0} total interview calls made`}
               </p>
             </div>
 
