@@ -274,7 +274,7 @@ class InterviewService:
 
         # Candidate-facing mail is branded with the hiring company (multi-tenant),
         # signed by the recruiter who actually sent the invite.
-        org = await db.organizations.find_one({"id": org_id}, {"_id": 0, "name": 1, "contact_email": 1, "reply_to": 1})
+        org = await db.organizations.find_one({"id": org_id})
         company_name = (org or {}).get("name") or settings.APP_NAME
         recruiter = await db.users.find_one({"id": recruiter_id}, {"_id": 0, "name": 1}) if recruiter_id else None
         sender = EmailService.sender_for(org, (recruiter or {}).get("name"))
@@ -283,7 +283,7 @@ class InterviewService:
         result = {"sent": False, "reason": None}
         if not email or "@" not in email:
             result["reason"] = "Candidate has no valid email address."
-        elif not EmailService.is_configured():
+        elif not EmailService.is_configured(sender.get("custom_smtp")):
             result["reason"] = "SMTP is not configured on the server."
         else:
             try:
@@ -630,7 +630,7 @@ class InterviewService:
         )
 
         candidate = await db.candidates.find_one({"id": interview["candidate_id"], "organization_id": org_id})
-        org = await db.organizations.find_one({"id": org_id}, {"_id": 0, "name": 1, "contact_email": 1, "reply_to": 1})
+        org = await db.organizations.find_one({"id": org_id})
         company_name = (org or {}).get("name") or settings.APP_NAME
         recruiter = await db.users.find_one({"id": recruiter_id}, {"_id": 0, "name": 1}) if recruiter_id else None
         sender_name = (recruiter or {}).get("name")

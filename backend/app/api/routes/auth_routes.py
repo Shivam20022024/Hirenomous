@@ -312,6 +312,9 @@ async def update_org_telephony(req: TelephonySettingsRequest, current_user: User
     if not org_id:
         raise HTTPException(status_code=400, detail="No organization associated with this account")
 
+    org = await db["organizations"].find_one({"id": org_id})
+    existing_tel = (org or {}).get("telephony") or {}
+
     update_data = {
         "mode": req.mode,
         "provider": req.provider,
@@ -319,8 +322,10 @@ async def update_org_telephony(req: TelephonySettingsRequest, current_user: User
     }
     if req.account_sid is not None:
         update_data["account_sid"] = req.account_sid.strip()
-    if req.auth_token:
+    if req.auth_token and req.auth_token.strip():
         update_data["auth_token"] = req.auth_token.strip()
+    elif existing_tel.get("auth_token"):
+        update_data["auth_token"] = existing_tel["auth_token"]
 
     await db["organizations"].update_one(
         {"id": org_id},
@@ -362,6 +367,9 @@ async def update_org_email_settings(req: EmailSettingsRequest, current_user: Use
     if not org_id:
         raise HTTPException(status_code=400, detail="No organization associated with this account")
 
+    org = await db["organizations"].find_one({"id": org_id})
+    existing_em = (org or {}).get("email_settings") or {}
+
     update_data = {
         "sender_name": req.sender_name.strip(),
         "sender_email": req.sender_email.strip(),
@@ -372,8 +380,10 @@ async def update_org_email_settings(req: EmailSettingsRequest, current_user: Use
         "smtp_user": (req.smtp_user or "").strip(),
         "smtp_use_tls": req.smtp_use_tls,
     }
-    if req.smtp_password:
+    if req.smtp_password and req.smtp_password.strip():
         update_data["smtp_password"] = req.smtp_password.strip()
+    elif existing_em.get("smtp_password"):
+        update_data["smtp_password"] = existing_em["smtp_password"]
 
     await db["organizations"].update_one(
         {"id": org_id},
@@ -385,3 +395,53 @@ async def update_org_email_settings(req: EmailSettingsRequest, current_user: Use
         }}
     )
     return {"status": "success", "message": "Email settings updated successfully"}
+
+
+@router.post("/organization/email-settings/test")
+async def test_org_email_settings(current_user: UserInDB = Depends(get_current_active_user)):
+    """Sends a real test email through the company's configured custom SMTP server."""
+    db = get_db()
+    org_id = current_user.organization_id
+    if not org_id:
+        raise HTTPException(status_code=400, detail="No organization associated with this account")
+
+    org = await db["organizations"].find_one({"id": org_id})
+    from app.services.email_service import EmailService
+    sender = EmailService.sender_for(org, current_user.name)
+    custom_smtp = sender.get("custom_smtp")
+
+    if not custom_smtp or not custom_smtp.get("smtp_host"):
+        raise HTTPException(status_code=400, detail="Custom SMTP is not enabled or SMTP host is missing.")
+
+    if not custom_smtp.get("smtp_password"):
+        raise HTTPException(
+            status_code=400,
+            detail="SMTP password has not been saved yet. Please enter your App Password and click 'Save Email Settings' first."
+        )
+
+    to_email = current_user.email
+    subject = f"Test Email from {org.get('name', 'Company')} via Custom SMTP"
+    body = (
+        f"Hi {current_user.name},\n\n"
+        f"This confirms that your company's custom SMTP configuration is working correctly!\n\n"
+        f"Server: {custom_smtp.get('smtp_host')}:{custom_smtp.get('smtp_port', 587)}\n"
+        f"User: {custom_smtp.get('smtp_user')}\n"
+        f"Display Name: {sender.get('from_name')}\n"
+        f"Reply-To: {sender.get('reply_to')}\n\n"
+        f"Candidate interview invitations and notification emails will now be sent directly through your custom mail server.\n\n"
+        f"Best regards,\n"
+        f"{sender.get('from_name')}"
+    )
+
+    try:
+        from starlette.concurrency import run_in_threadpool
+        await run_in_threadpool(
+            lambda: EmailService.send_email(to_email, subject, body, **sender)
+        )
+        return {
+            "status": "success",
+            "message": f"Test email sent successfully to {to_email} via your custom SMTP server ({custom_smtp.get('smtp_user')})!"
+        }
+    except Exception as e:
+        logger.error(f"Custom SMTP test email failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Custom SMTP delivery failed: {str(e)}")

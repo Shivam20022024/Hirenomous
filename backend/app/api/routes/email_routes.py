@@ -18,20 +18,20 @@ async def send_shortlisted_emails(
     org_id: str = Depends(get_context_organization_id),
     current_user: UserInDB = Depends(get_current_active_user),
 ):
-    if not EmailService.is_configured():
+    db = get_db()
+    org = await db.organizations.find_one({"id": org_id})
+    email_settings = (org or {}).get("email_settings") or {}
+    custom_smtp = email_settings if email_settings.get("custom_smtp") and email_settings.get("smtp_host") else None
+
+    if not EmailService.is_configured(custom_smtp):
         raise HTTPException(
             status_code=500,
             detail=(
-                "SMTP is not configured. Please set SMTP_HOST, SMTP_PORT, SMTP_USER, "
-                "SMTP_PASSWORD, and SMTP_FROM_EMAIL in backend/.env.local."
+                "SMTP is not configured. Please configure your custom SMTP settings in Settings > Email, "
+                "or set platform SMTP in backend/.env.local."
             ),
         )
 
-    db = get_db()
-
-    # Candidate-facing emails are branded with the hiring company (multi-tenant):
-    # signed "<Company> Hiring Team", Reply-To the company's contact address.
-    org = await db.organizations.find_one({"id": org_id})
     company_name = (org or {}).get("name") or settings.APP_NAME
 
     # "Email Interested" should only reach candidates who actually expressed interest

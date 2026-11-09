@@ -25,7 +25,9 @@ class EmailService:
         }
 
     @staticmethod
-    def is_configured() -> bool:
+    def is_configured(custom_smtp: Optional[Dict[str, Any]] = None) -> bool:
+        if custom_smtp and custom_smtp.get("smtp_host"):
+            return True
         return all([
             settings.SMTP_HOST,
             settings.SMTP_PORT,
@@ -273,6 +275,9 @@ class EmailService:
             smtp_pass = custom_smtp.get("smtp_password") or ""
             smtp_use_tls = custom_smtp.get("smtp_use_tls", True)
             from_email = custom_smtp.get("sender_email") or smtp_user or settings.SMTP_FROM_EMAIL
+            # For Gmail/Google Workspace, the envelope From address must match authenticated user
+            if "gmail.com" in smtp_host.lower() and smtp_user and "@" in smtp_user:
+                from_email = smtp_user
 
             msg = EmailMessage()
             msg["From"] = formataddr((from_name, from_email)) if from_name else from_email

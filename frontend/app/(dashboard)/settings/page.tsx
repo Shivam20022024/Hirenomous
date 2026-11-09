@@ -21,6 +21,7 @@ import {
   Radio,
   Sliders,
   Sparkles,
+  Send,
 } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 
@@ -48,6 +49,7 @@ export default function SettingsPage() {
   // Email state
   const [emailLoading, setEmailLoading] = useState(false);
   const [emailSaving, setEmailSaving] = useState(false);
+  const [emailTesting, setEmailTesting] = useState(false);
   const [emailMessage, setEmailMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [emailForm, setEmailForm] = useState({
@@ -187,6 +189,22 @@ export default function SettingsPage() {
       setEmailMessage({ type: 'error', text: err.message || 'Failed to save email settings.' });
     } finally {
       setEmailSaving(false);
+    }
+  };
+
+  // Test Custom SMTP Connection
+  const handleTestEmail = async () => {
+    setEmailTesting(true);
+    setEmailMessage(null);
+    try {
+      const res = await fetchApi('/api/auth/organization/email-settings/test', {
+        method: 'POST',
+      });
+      setEmailMessage({ type: 'success', text: res.message || 'Test email sent successfully!' });
+    } catch (err: any) {
+      setEmailMessage({ type: 'error', text: err.message || 'Failed to send test email.' });
+    } finally {
+      setEmailTesting(false);
     }
   };
 
@@ -761,8 +779,20 @@ export default function SettingsPage() {
                     )}
                   </div>
 
-                  {/* Save Button */}
-                  <div className="flex justify-end pt-2">
+                  {/* Save & Test Buttons */}
+                  <div className="flex items-center justify-between pt-2">
+                    {emailForm.custom_smtp ? (
+                      <button
+                        type="button"
+                        disabled={emailTesting || emailSaving || (!emailForm.has_smtp_password && !emailForm.smtp_password)}
+                        onClick={handleTestEmail}
+                        className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-4 py-2.5 text-sm font-semibold hover:bg-muted disabled:opacity-40"
+                      >
+                        <Send size={15} />
+                        {emailTesting ? 'Sending test email...' : 'Test SMTP Connection'}
+                      </button>
+                    ) : <div />}
+
                     <button
                       type="submit"
                       disabled={emailSaving}
