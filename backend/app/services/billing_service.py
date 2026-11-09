@@ -234,10 +234,317 @@ async def grant_free_access(*, org_id: str, days: int) -> Dict[str, Any]:
 
 
 async def ensure_billing_indexes() -> None:
-    try:
-        db = get_db()
-        await db.payments.create_index([("organization_id", 1), ("created_at", -1)])
-        await db.payments.create_index([("razorpay_order_id", 1)], unique=True)
-        logger.info("Billing indexes ensured.")
-    except Exception as exc:
-        logger.error(f"ensure_billing_indexes failed: {exc}")
+    db = get_db()
+    if db is None:
+        return
+    indexes = [
+        (db.payments, [("organization_id", 1), ("created_at", -1)], {}),
+        (db.payments, [("razorpay_order_id", 1)], {"unique": True}),
+        (db.wallets, [("organization_id", 1)], {"unique": True, "sparse": True}),
+        (db.transactions, [("organization_id", 1), ("created_at", -1)], {}),
+        (db.usage_records, [("organization_id", 1), ("created_at", -1)], {}),
+        (db.usage_records, [("call_id", 1)], {"unique": True, "sparse": True}),
+    ]
+    for coll, keys, kwargs in indexes:
+        try:
+            await coll.create_index(keys, **kwargs)
+        except Exception:
+            pass
+    logger.info("Billing indexes ensured.")
+
+
+# ---------------------------------------------------------------------------
+# Wallet & Usage Tracking (ported from Talkly)
+# ---------------------------------------------------------------------------
+import uuid
+
+DEFAULT_PRICING = {
+    "outbound": {"provider_cost": 8.0, "customer_price": 12.0},
+    "inbound": {"provider_cost": 7.0, "customer_price": 11.0},
+    "default": {"provider_cost": 8.0, "customer_price": 12.0}
+}
+TRIAL_FREE_SECONDS = 10 * 60  # 10 minutes free trial calls
+
+async def get_or_create_wallet(db, org_id: str) -> dict:
+    wallet = await db.wallets.find_one({"$or": [{"organization_id": org_id}, {"company_id": org_id}]})
+    if not wallet:
+        wallet = {
+            "id": str(uuid.uuid4()),
+            "organization_id": org_id,
+            "company_id": org_id,
+            "balance": 0.0,
+            "currency": "INR",
+            "status": "active",
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        await db.wallets.insert_one(wallet)
+    return wallet
+
+async def add_credits(db, org_id: str, amount: float, payment_provider: str, provider_transaction_id: str, description: str):
+    # Idempotency check
+    existing_tx = await db.transactions.find_one({
+        "provider_transaction_id": provider_transaction_id,
+        "type": "CREDIT",
+        "status": "COMPLETED"
+    })
+    if existing_tx:
+        return existing_tx
+        
+    wallet = await get_or_create_wallet(db, org_id)
+    
+    tx = {
+        "id": str(uuid.uuid4()),
+        "organization_id": org_id,
+        "company_id": org_id,
+        "wallet_id": wallet["id"],
+        "type": "CREDIT",
+        "amount": amount,
+        "currency": wallet.get("currency", "INR"),
+        "payment_provider": payment_provider,
+        "provider_transaction_id": provider_transaction_id,
+        "status": "COMPLETED",
+        "description": description,
+        "created_at": datetime.utcnow()
+    }
+    await db.transactions.insert_one(tx)
+
+    await db.wallets.update_one(
+        {"id": wallet["id"]},
+        {"$inc": {"balance": amount}, "$set": {"updated_at": datetime.utcnow()}}
+    )
+    return tx
+
+async def get_trial_seconds_used(db, org_id: str) -> float:
+    pipeline = [
+        {"$match": {"$or": [{"organization_id": org_id}, {"company_id": org_id}]}},
+        {"$group": {"_id": None, "total": {"$sum": "$duration_seconds"}}}
+    ]
+    agg = await db.usage_records.aggregate(pipeline).to_list(1)
+    return float(agg[0]["total"]) if agg and agg[0].get("total") else 0.0
+
+async def check_call_allowance(db, org_id: str) -> dict:
+    org = await db.organizations.find_one({"id": org_id})
+    if org and org.get("plan_type") == "unlimited":
+        return {"allowed": True, "reason": "unlimited_plan"}
+
+    is_trial = not org or org.get("plan_type") == "trial" or not org.get("paid_until")
+    if is_trial:
+        used = await get_trial_seconds_used(db, org_id)
+        if used < TRIAL_FREE_SECONDS:
+            return {"allowed": True, "reason": "trial_minutes_remaining"}
+
+    wallet = await get_or_create_wallet(db, org_id)
+    if wallet.get("balance", 0.0) > 0:
+        return {"allowed": True, "reason": "has_balance"}
+
+    return {
+        "allowed": False,
+        "reason": "Free trial minutes are exhausted and wallet balance is ₹0. Please recharge to place calls."
+    }
+
+async def process_call_billing(db, call_id: str, org_id: str, direction: str, duration_seconds: float, provider: str = "plivo"):
+    if duration_seconds <= 0:
+        return None
+
+    existing_usage = await db.usage_records.find_one({"call_id": call_id})
+    if existing_usage:
+        return existing_usage
+
+    duration_seconds = float(duration_seconds)
+    pricing = DEFAULT_PRICING.get(direction, DEFAULT_PRICING["default"])
+    free_seconds_applied = 0.0
+
+    if duration_seconds < 5.0:
+        customer_cost = 0.0
+        provider_cost = 0.0
+        billed_minutes = 0.0
+    else:
+        provider_cost = round(duration_seconds * (pricing["provider_cost"] / 60.0), 2)
+        billed_minutes = round(duration_seconds / 60.0, 2)
+        billable_seconds = duration_seconds
+
+        org = await db.organizations.find_one({"id": org_id})
+        is_unlimited = bool(org) and org.get("plan_type") == "unlimited"
+        is_trial = not org or org.get("plan_type") == "trial" or not org.get("paid_until")
+        
+        if is_trial:
+            used_so_far = await get_trial_seconds_used(db, org_id)
+            free_remaining = max(0.0, TRIAL_FREE_SECONDS - used_so_far)
+            free_seconds_applied = min(duration_seconds, free_remaining)
+            billable_seconds = duration_seconds - free_seconds_applied
+
+        customer_cost = 0.0 if is_unlimited else round(billable_seconds * (pricing["customer_price"] / 60.0), 2)
+
+    wallet = await get_or_create_wallet(db, org_id)
+
+    usage_record = {
+        "id": str(uuid.uuid4()),
+        "organization_id": org_id,
+        "company_id": org_id,
+        "call_id": call_id,
+        "provider": provider,
+        "duration_seconds": duration_seconds,
+        "billed_minutes": billed_minutes,
+        "provider_cost": provider_cost,
+        "customer_cost": customer_cost,
+        "free_seconds_applied": free_seconds_applied,
+        "service_type": f"{direction}_call",
+        "created_at": datetime.utcnow()
+    }
+    await db.usage_records.insert_one(usage_record)
+
+    if customer_cost > 0:
+        tx = {
+            "id": str(uuid.uuid4()),
+            "organization_id": org_id,
+            "company_id": org_id,
+            "wallet_id": wallet["id"],
+            "type": "DEBIT",
+            "amount": customer_cost,
+            "currency": wallet.get("currency", "INR"),
+            "payment_provider": "wallet",
+            "provider_transaction_id": call_id,
+            "status": "COMPLETED",
+            "description": f"AI Interview Screening Call: {int(round(duration_seconds))}s ({direction})",
+            "created_at": datetime.utcnow()
+        }
+        await db.transactions.insert_one(tx)
+        await db.wallets.update_one(
+            {"id": wallet["id"]},
+            {"$inc": {"balance": -customer_cost}, "$set": {"updated_at": datetime.utcnow()}}
+        )
+
+    return usage_record
+
+async def get_dashboard_data(db, org_id: str):
+    wallet = await get_or_create_wallet(db, org_id)
+    org = await db.organizations.find_one({"id": org_id})
+    is_unlimited = bool(org) and org.get("plan_type") == "unlimited"
+    is_trial = not org or org.get("plan_type") == "trial" or not org.get("paid_until")
+    
+    if is_unlimited:
+        plan_name = "Enterprise Unlimited"
+    elif is_trial:
+        plan_name = "Trial (10 Min Included)"
+    else:
+        plan_name = "Pay-As-You-Go"
+
+    included_minutes = TRIAL_FREE_SECONDS / 60.0 if is_trial else 0
+
+    pipeline = [
+        {"$match": {"$or": [{"organization_id": org_id}, {"company_id": org_id}]}},
+        {"$group": {
+            "_id": "$service_type",
+            "total_seconds": {"$sum": "$duration_seconds"},
+            "total_cost": {"$sum": "$customer_cost"}
+        }}
+    ]
+
+    cursor = db.usage_records.aggregate(pipeline)
+    by_direction = {"outbound": {"seconds": 0.0, "cost": 0.0}, "inbound": {"seconds": 0.0, "cost": 0.0}}
+    async for doc in cursor:
+        direction = str(doc.get("_id") or "outbound_call").replace("_call", "")
+        if direction not in by_direction:
+            by_direction[direction] = {"seconds": 0.0, "cost": 0.0}
+        by_direction[direction]["seconds"] += float(doc.get("total_seconds") or 0)
+        by_direction[direction]["cost"] += float(doc.get("total_cost") or 0)
+
+    minutes_used = round(sum(d["seconds"] for d in by_direction.values()) / 60.0, 1)
+    total_spending = round(sum(d["cost"] for d in by_direction.values()), 2)
+
+    total_calls = await db.calls.count_documents({"$or": [{"organization_id": org_id}, {"company_id": org_id}]})
+    completed_calls = await db.calls.count_documents({
+        "$or": [{"organization_id": org_id}, {"company_id": org_id}],
+        "status": {"$in": ["completed", "Completed", "analyzed", "Analyzed"]}
+    })
+    minutes_remaining = max(0.0, round(included_minutes - minutes_used, 1)) if included_minutes > 0 else 0.0
+
+    return {
+        "balance": round(wallet.get("balance", 0.0), 2),
+        "currency": wallet.get("currency", "INR"),
+        "plan_name": plan_name,
+        "is_trial": is_trial,
+        "minutes_used": minutes_used,
+        "minutes_included": included_minutes,
+        "minutes_remaining": minutes_remaining,
+        "total_spending": total_spending,
+        "breakdown": {
+            k: {"minutes": round(v["seconds"] / 60.0, 1), "spending": round(v["cost"], 2)}
+            for k, v in by_direction.items()
+        },
+        "total_calls": total_calls,
+        "completed_calls": completed_calls,
+        "rate_per_minute": 12.0,
+        "organization_name": (org or {}).get("name") or "Company",
+        "company_name": (org or {}).get("name") or "Company",
+    }
+
+async def create_wallet_recharge_order(db, org_id: str, amount: float, currency: str = "INR", actor_user_id: Optional[str] = None):
+    if not is_configured():
+        raise RuntimeError("Razorpay payments not configured. Set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.")
+    if amount <= 0:
+        raise ValueError("Recharge amount must be greater than 0")
+
+    amount_paise = int(round(amount * 100))
+    receipt = f"w-{org_id[:16]}-{int(datetime.utcnow().timestamp())}"
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        resp = await client.post(
+            f"{_RAZORPAY_API}/orders",
+            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET),
+            json={
+                "amount": amount_paise,
+                "currency": currency,
+                "receipt": receipt,
+                "notes": {"organization_id": org_id, "type": "wallet_recharge"},
+            },
+        )
+        resp.raise_for_status()
+        order = resp.json()
+
+    await db.payments.insert_one({
+        "organization_id": org_id,
+        "type": "wallet_recharge",
+        "amount_inr": amount,
+        "razorpay_order_id": order["id"],
+        "razorpay_payment_id": None,
+        "status": "created",
+        "created_by": actor_user_id,
+        "created_at": datetime.utcnow(),
+    })
+
+    return {
+        "order_id": order["id"],
+        "amount": amount_paise,
+        "amount_inr": amount,
+        "currency": currency,
+        "key_id": settings.RAZORPAY_KEY_ID,
+    }
+
+async def verify_wallet_recharge(db, org_id: str, order_id: str, payment_id: str, signature: str):
+    if not is_configured():
+        raise RuntimeError("Payments not configured.")
+    if not _verify_signature(order_id, payment_id, signature):
+        raise ValueError("Payment signature verification failed.")
+
+    payment = await db.payments.find_one({"razorpay_order_id": order_id, "organization_id": org_id})
+    if not payment:
+        raise ValueError("Payment order not found.")
+
+    amount = float(payment.get("amount_inr") or 0.0)
+    await add_credits(
+        db,
+        org_id=org_id,
+        amount=amount,
+        payment_provider="razorpay",
+        provider_transaction_id=payment_id,
+        description=f"Wallet recharge via Razorpay ({order_id})"
+    )
+
+    await db.payments.update_one(
+        {"_id": payment["_id"]},
+        {"$set": {"status": "paid", "razorpay_payment_id": payment_id, "paid_at": datetime.utcnow()}}
+    )
+    return await get_dashboard_data(db, org_id)
+

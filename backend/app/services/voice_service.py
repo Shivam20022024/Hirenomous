@@ -1,4 +1,7 @@
-from faster_whisper import WhisperModel
+try:
+    from faster_whisper import WhisperModel
+except Exception:
+    WhisperModel = None
 import os
 from app.core.config import settings
 

@@ -49,6 +49,18 @@ class Settings(BaseSettings):
     BOLNA_AGENT_ID: Optional[str] = None
     BOLNA_CALLBACK_API_TOKEN: Optional[str] = None
 
+    # Plivo Telephony Settings (Talkly Voice Engine)
+    PLIVO_AUTH_ID: Optional[str] = None
+    PLIVO_AUTH_TOKEN: Optional[str] = None
+    PLIVO_PHONE_NUMBER: Optional[str] = None
+    TELEPHONY_PROVIDER: str = "plivo"
+
+    # Sarvam AI (Real-time STT & Bulbul TTS)
+    SARVAM_API_KEY: Optional[str] = None
+
+    # Bakbak / Raya TTS (hub.getraya.app)
+    BAKBAK_API_KEY: Optional[str] = None
+
     # Google Drive Settings (for importing resumes from Drive folders)
     GOOGLE_DRIVE_API_KEY: Optional[str] = None
 

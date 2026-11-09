@@ -42,8 +42,8 @@ async def _org_name(db, org_id: str) -> str:
 
 
 @router.post("/call-candidate/{candidate_id}")
-async def call_candidate(candidate_id: str, org_id: str = Depends(get_context_organization_id)):
-    """Initiates a Bolna.ai call for a specific candidate."""
+async def call_candidate(candidate_id: str, request: Request, org_id: str = Depends(get_context_organization_id)):
+    """Initiates a screening call for a specific candidate (supports Plivo + Raya/Sarvam with Bolna fallback)."""
     db = get_db()
 
     candidate = await db.candidates.find_one({"id": candidate_id, "organization_id": org_id})
@@ -57,6 +57,74 @@ async def call_candidate(candidate_id: str, org_id: str = Depends(get_context_or
     if not phone_number:
         raise HTTPException(status_code=400, detail="Candidate missing phone number")
 
+    # 1. Try Plivo Telephony (Talkly voice stack: Plivo + Raya + Sarvam)
+    plivo_auth_id = settings.PLIVO_AUTH_ID or os.environ.get("PLIVO_AUTH_ID")
+    plivo_auth_token = settings.PLIVO_AUTH_TOKEN or os.environ.get("PLIVO_AUTH_TOKEN")
+    plivo_from_number = settings.PLIVO_PHONE_NUMBER or os.environ.get("PLIVO_PHONE_NUMBER", "+918065535758")
+    provider = getattr(settings, "TELEPHONY_PROVIDER", "plivo")
+
+    if provider.lower() == "plivo" and plivo_auth_id and plivo_auth_token and plivo_from_number:
+        try:
+            from app.telephony.plivo_provider import PlivoProvider
+            import time
+            plivo_prov = PlivoProvider(plivo_auth_id, plivo_auth_token, default_from=plivo_from_number)
+            call_id = f"plivo-{candidate_id}-{int(time.time())}"
+            now = datetime.utcnow()
+
+            await db.calls.insert_one({
+                "call_id": call_id,
+                "candidate_id": candidate_id,
+                "organization_id": org_id,
+                "candidate_name": candidate.get("name"),
+                "customer_id": phone_number,
+                "job_title": candidate.get("role", "Candidate"),
+                "status": "calling",
+                "provider": "plivo",
+                "direction": "outbound",
+                "call_started_at": now,
+                "created_at": now
+            })
+
+            proto = request.headers.get("x-forwarded-proto", "http")
+            host = request.headers.get("host", "localhost:8001")
+            base_url = settings.PUBLIC_BASE_URL or f"{proto}://{host}"
+
+            plivo_res = await plivo_prov.trigger_outbound_call(
+                to_phone_number=phone_number,
+                lead_id=call_id,
+                company_id=org_id,
+                from_phone_number=plivo_from_number,
+                base_url=base_url
+            )
+
+            await db.candidates.update_one(
+                {"id": candidate_id},
+                {"$set": {
+                    "status": "calling",
+                    "shortlisted": True,
+                    "provider": "plivo",
+                    "bolna_call_id": call_id,
+                    "plivo_call_id": call_id,
+                    "plivo_request_uuid": plivo_res.get("plivo_request_uuid"),
+                    "call_started_at": now,
+                    "startedAt": now.isoformat(),
+                    "last_interaction": now,
+                    "job_role": candidate.get("role") or "Candidate"
+                }}
+            )
+
+            return {
+                "status": "success",
+                "provider": "plivo",
+                "call_id": call_id,
+                "candidate": candidate["name"],
+                "plivo_request_uuid": plivo_res.get("plivo_request_uuid"),
+                "message": f"Plivo call dispatched successfully from {plivo_from_number} to {phone_number}"
+            }
+        except Exception as e:
+            logger.warning(f"Plivo call initiation error: {e}. Falling back to Bolna if available.")
+
+    # 2. Fallback to Bolna.ai
     try:
         call_result = await BolnaService.initiate_bolna_call(
             candidate_id=candidate_id,
@@ -86,11 +154,10 @@ async def call_candidate(candidate_id: str, org_id: str = Depends(get_context_or
             }}
         )
 
-        
         return {"status": "success", "call_id": bolna_call_id, "candidate": candidate["name"]}
     except Exception as e:
-        logger.error(f"Failed to initiate Bolna call: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Bolna error: {str(e)}")
+        logger.error(f"Failed to initiate call: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Call error: {str(e)}")
 
 @router.post("/stop-call/{candidate_id}")
 async def stop_candidate_call(candidate_id: str):

@@ -179,6 +179,7 @@ async def get_all_companies(current_user: UserInDB = Depends(require_super_admin
             {"organization_id": org_id, "role": "ORGANIZATION_ADMIN"}, {"_id": 0, "name": 1, "email": 1}
         )
         billing = billing_service.compute_access(org)
+        wallet = await db["wallets"].find_one({"$or": [{"organization_id": org_id}, {"company_id": org_id}]})
 
         companies.append({
             "id": org_id,
@@ -187,6 +188,7 @@ async def get_all_companies(current_user: UserInDB = Depends(require_super_admin
             "created_at": org.get("created_at"),
             "admin": admin,
             "billing": billing,
+            "wallet_balance": round(wallet.get("balance", 0.0), 2) if wallet else 0.0,
             "stats": {
                 "users": users_count,
                 "jobs": jobs_count,
@@ -196,6 +198,80 @@ async def get_all_companies(current_user: UserInDB = Depends(require_super_admin
         })
         
     return companies
+
+
+@router.get("/companies/{org_id}/billing")
+async def get_company_billing(org_id: str, current_user: UserInDB = Depends(require_super_admin)):
+    """Retrieve billing, wallet balance, and usage records for a specific company."""
+    db = get_db()
+    org = await db["organizations"].find_one({"id": org_id})
+    if not org:
+        raise HTTPException(status_code=404, detail="Company not found")
+        
+    wallet_data = await billing_service.get_dashboard_data(db, org_id)
+    usage = []
+    async for u in db.usage_records.find({"$or": [{"organization_id": org_id}, {"company_id": org_id}]}).sort("created_at", -1).limit(50):
+        u["_id"] = None
+        usage.append(u)
+    transactions = []
+    async for tx in db.transactions.find({"$or": [{"organization_id": org_id}, {"company_id": org_id}]}).sort("created_at", -1).limit(50):
+        tx["_id"] = None
+        transactions.append(tx)
+    return {"status": "success", "wallet": wallet_data, "usage": usage, "transactions": transactions}
+
+
+@router.post("/companies/{org_id}/impersonate")
+async def impersonate_company(org_id: str, current_user: UserInDB = Depends(require_super_admin)):
+    """Single Sign-In: generate an authenticated session as the company's admin in one click."""
+    db = get_db()
+    org = await db["organizations"].find_one({"id": org_id})
+    if not org:
+        raise HTTPException(status_code=404, detail="Company not found")
+
+    user = await db["users"].find_one({"organization_id": org_id, "role": "ORGANIZATION_ADMIN"})
+    if not user:
+        user = await db["users"].find_one({"organization_id": org_id})
+
+    if not user:
+        import uuid
+        now = datetime.utcnow()
+        user_id = str(uuid.uuid4())
+        user_data = {
+            "id": user_id,
+            "name": f"{org.get('name', 'Company')} Admin",
+            "email": org.get("contact_email") or f"admin_{org_id[:8]}@hirenomous.internal",
+            "hashed_password": get_password_hash("hirenomous123"),
+            "role": "ORGANIZATION_ADMIN",
+            "organization_id": org_id,
+            "status": "active",
+            "created_at": now,
+            "updated_at": now
+        }
+        await db["users"].insert_one(user_data)
+        user = user_data
+
+    from app.core.auth import create_access_token
+    token = create_access_token(
+        data={"sub": str(user["id"]), "role": user.get("role", "ORGANIZATION_ADMIN"), "org_id": org_id}
+    )
+    user_resp = {
+        "id": str(user["id"]),
+        "name": user.get("name"),
+        "email": user.get("email"),
+        "role": user.get("role"),
+        "organization_id": org_id,
+        "organization_name": org.get("name"),
+        "status": user.get("status", "active")
+    }
+    return {
+        "status": "success",
+        "access_token": token,
+        "token_type": "bearer",
+        "user": user_resp,
+        "impersonated": True,
+        "company_name": org.get("name")
+    }
+
 
 @router.post("/companies")
 async def create_company(request: CreateCompanyRequest, current_user: UserInDB = Depends(require_super_admin)):

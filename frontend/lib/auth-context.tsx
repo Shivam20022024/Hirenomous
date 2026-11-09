@@ -10,6 +10,7 @@ interface User {
   role: string;
   organization_name?: string;
   organization_id?: string;
+  org_id?: string;
 }
 
 interface ViewAsOrg {

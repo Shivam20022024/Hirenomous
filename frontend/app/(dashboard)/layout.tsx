@@ -19,7 +19,8 @@ import {
   Phone,
   Briefcase,
   Settings,
-  ClipboardCheck
+  ClipboardCheck,
+  Wallet
 } from 'lucide-react';
 
 const navigation = [
@@ -31,6 +32,7 @@ const navigation = [
   { name: 'Calling Campaigns', href: '/campaigns', icon: Phone },
   { name: 'L1 Interviews', href: '/interviews', icon: ClipboardCheck },
   { name: 'L2 Interviews', href: '/l2-interviews', icon: ClipboardCheck },
+  { name: 'Billing & Usage', href: '/billing', icon: Wallet },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
@@ -52,6 +54,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const exitViewAs = () => {
     setViewAsOrg(null);
     router.push('/superadmin');
+  };
+
+  const [hasParentToken, setHasParentToken] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setHasParentToken(!!localStorage.getItem('superadmin_parent_token'));
+    }
+  }, []);
+
+  const returnToSuperAdmin = () => {
+    const parentToken = localStorage.getItem('superadmin_parent_token');
+    if (parentToken) {
+      localStorage.removeItem('superadmin_parent_token');
+      localStorage.setItem('token', parentToken);
+      window.location.href = '/superadmin/companies';
+    }
   };
 
   const showViewAsBanner = user?.role === 'SUPER_ADMIN' && !!viewAsOrg;
@@ -140,6 +159,21 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         <BillingGate />
+
+        {hasParentToken && (
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-primary/30 bg-primary/10 px-5 py-2.5 text-sm lg:px-10">
+            <span className="font-semibold text-primary flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              Signed in as <span className="font-bold underline">{user?.organization_name || user?.name}</span> via Super Admin Single Sign-In.
+            </span>
+            <button
+              onClick={returnToSuperAdmin}
+              className="rounded-lg bg-primary px-3.5 py-1 text-xs font-bold text-primary-foreground hover:opacity-90 shadow-sm"
+            >
+              Return to Super Admin
+            </button>
+          </div>
+        )}
 
         {showViewAsBanner && (
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-warning/40 bg-warning/10 px-5 py-2.5 text-sm lg:px-10">

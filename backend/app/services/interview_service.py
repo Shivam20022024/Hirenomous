@@ -706,8 +706,10 @@ class InterviewService:
         plan = interview.get("question_plan") or []
         answered = _answered_count(interview)
         needs_verify = InterviewService._needs_email_verify(interview, candidate)
+        full_name = (candidate or {}).get("name") or first_name
         return {
             "candidate_first_name": first_name,
+            "candidate_name": full_name,
             "job_title": job_title,
             "status": interview.get("status"),
             "mode": "video",

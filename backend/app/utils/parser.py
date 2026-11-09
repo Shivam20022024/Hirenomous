@@ -1,13 +1,33 @@
-import fitz  # PyMuPDF
+try:
+    import fitz  # PyMuPDF
+except Exception:
+    fitz = None
+
+import pypdf
 from docx import Document
 import os
 
 def extract_text_from_pdf(file_path: str) -> str:
     text = ""
-    with fitz.open(file_path) as doc:
-        for page in doc:
-            text += page.get_text()
-    return text
+    if fitz is not None:
+        try:
+            with fitz.open(file_path) as doc:
+                for page in doc:
+                    text += page.get_text()
+            return text
+        except Exception:
+            pass
+    
+    # Fallback to pypdf
+    try:
+        reader = pypdf.PdfReader(file_path)
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                text += t + "\n"
+        return text
+    except Exception as e:
+        raise ValueError(f"Failed to extract PDF text: {e}")
 
 def extract_text_from_docx(file_path: str) -> str:
     doc = Document(file_path)
