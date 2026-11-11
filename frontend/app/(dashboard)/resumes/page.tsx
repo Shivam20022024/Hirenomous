@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Upload, Plus, FileText, X, Check, Loader2, Briefcase, Link2, HardDrive, Building2, Share2, Globe } from 'lucide-react';
-import { fetchApi, API_BASE_URL } from '@/lib/api';
+import { fetchApi } from '@/lib/api';
 import { EmptyState } from '@/components/empty-state';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
@@ -38,7 +38,7 @@ export default function ResumesPage() {
   const [jobDescription, setJobDescription] = useState('We are looking for a software engineer with Python and AI experience.');
   const [skipAi, setSkipAi] = useState(false);
   const [jobId, setJobId] = useState('');
-  
+
   // Manual State
   const [manualData, setManualData] = useState({
     name: '',
@@ -50,6 +50,7 @@ export default function ResumesPage() {
   });
 
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ completed: number; total: number; percent: number; currentFile: string } | null>(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,40 +85,52 @@ export default function ResumesPage() {
     setLoading(true);
     setError('');
     setSuccess('');
+    setUploadProgress(null);
 
     let successCount = 0;
     let failCount = 0;
-    const CONCURRENCY = 200; // Allow uploading up to 200 files simultaneously
+    const totalFiles = files.length;
+    let completedCount = 0;
 
-    for (let i = 0; i < files.length; i += CONCURRENCY) {
-      const chunk = files.slice(i, i + CONCURRENCY);
+    // Use a parallel worker pool of 12 concurrent workers to continuously drain the file queue
+    if (files.length > 0) {
+      setUploadProgress({ completed: 0, total: totalFiles, percent: 0, currentFile: files[0]?.name || '' });
+      let nextIndex = 0;
 
-      await Promise.all(chunk.map(async (file) => {
-        try {
-          const formData = new FormData();
-          formData.append('file', file);
-          formData.append('job_description', jobDescription);
-          formData.append('skip_ai', String(skipAi));
-          if (jobId) formData.append('job_id', jobId);
+      const worker = async () => {
+        while (nextIndex < files.length) {
+          const idx = nextIndex++;
+          const file = files[idx];
+          if (!file) break;
 
-          const token = localStorage.getItem('token');
-          const res = await fetch(`${API_BASE_URL}/upload-resume`, {
-            method: 'POST',
-            headers: {
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            },
-            body: formData
-          });
+          try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('job_description', jobDescription);
+            formData.append('skip_ai', String(skipAi));
+            if (jobId) formData.append('job_id', jobId);
 
-          if (!res.ok) {
+            await fetchApi('/upload-resume', {
+              method: 'POST',
+              body: formData
+            });
+            successCount++;
+          } catch (err: any) {
             failCount++;
-            return;
+          } finally {
+            completedCount++;
+            setUploadProgress({
+              completed: completedCount,
+              total: totalFiles,
+              percent: Math.min(100, Math.round((completedCount / totalFiles) * 100)),
+              currentFile: file.name
+            });
           }
-          successCount++;
-        } catch (err: any) {
-          failCount++;
         }
-      }));
+      };
+
+      const POOL_SIZE = Math.min(12, files.length);
+      await Promise.all(Array.from({ length: POOL_SIZE }, () => worker()));
     }
 
     const DRIVE_CONCURRENCY = 15; // Matches the backend's AI HTTP client connection pool (see resume_service.py)
@@ -212,8 +225,8 @@ export default function ResumesPage() {
         </div>
         {jobs.length > 0 && (
           <div className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 shadow-sm">
-             <Briefcase className="h-4 w-4 text-primary" />
-             <span className="text-sm font-semibold">{jobs.length} Active Jobs</span>
+            <Briefcase className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">{jobs.length} Active Jobs</span>
           </div>
         )}
       </div>
@@ -237,8 +250,8 @@ export default function ResumesPage() {
       </div>
 
       <div className="relative">
-        {error && <div className="mb-6 rounded-xl bg-destructive/10 p-4 text-sm font-medium text-destructive flex items-start gap-3"><X size={16} className="mt-0.5 shrink-0"/>{error}</div>}
-        {success && <div className="mb-6 rounded-xl bg-success/10 p-4 text-sm font-medium text-success flex items-start gap-3"><Check size={16} className="mt-0.5 shrink-0"/>{success}</div>}
+        {error && <div className="mb-6 rounded-xl bg-destructive/10 p-4 text-sm font-medium text-destructive flex items-start gap-3"><X size={16} className="mt-0.5 shrink-0" />{error}</div>}
+        {success && <div className="mb-6 rounded-xl bg-success/10 p-4 text-sm font-medium text-success flex items-start gap-3"><Check size={16} className="mt-0.5 shrink-0" />{success}</div>}
 
         {activeTab === 'upload' ? (
           <form onSubmit={handleUploadSubmit} className="space-y-6">
@@ -251,9 +264,9 @@ export default function ResumesPage() {
                     <h2 className="text-base font-semibold text-foreground">Match resumes to a job</h2>
                     <p className="text-sm font-semibold text-foreground mt-1">Select an active job to parse resumes against its requirements.</p>
                   </div>
-                  
-                  <select 
-                    value={jobId} 
+
+                  <select
+                    value={jobId}
                     onChange={e => {
                       const newJobId = e.target.value;
                       setJobId(newJobId);
@@ -265,7 +278,7 @@ export default function ResumesPage() {
                       } else {
                         setJobDescription('');
                       }
-                    }} 
+                    }}
                     className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80"
                   >
                     <option value="">Select a job</option>
@@ -278,7 +291,7 @@ export default function ResumesPage() {
                         <Briefcase className="h-3.5 w-3.5 text-primary" />
                       </div>
                       <span className="text-xs font-semibold text-primary">
-                        {jobs.find(j => j.id === jobId)?.title} 
+                        {jobs.find(j => j.id === jobId)?.title}
                         {jobs.find(j => j.id === jobId)?.experience ? ` · ${jobs.find(j => j.id === jobId)?.experience}` : ''}
                       </span>
                     </div>
@@ -295,21 +308,21 @@ export default function ResumesPage() {
                   </div>
 
                   <div className="flex-1">
-                    <textarea 
-                      value={jobDescription} 
-                      onChange={e => setJobDescription(e.target.value)} 
+                    <textarea
+                      value={jobDescription}
+                      onChange={e => setJobDescription(e.target.value)}
                       disabled={skipAi}
                       placeholder="Paste job description here..."
-                      className="w-full h-full min-h-[120px] rounded-xl border border-border bg-background p-4 text-sm shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:bg-muted transition-colors resize-none" 
+                      className="w-full h-full min-h-[120px] rounded-xl border border-border bg-background p-4 text-sm shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-50 disabled:bg-muted transition-colors resize-none"
                     />
                   </div>
 
                   <div className="mt-5 flex items-start gap-3 rounded-xl border border-border bg-muted/30 p-4">
                     <div className="relative flex h-5 items-center justify-center">
-                      <input 
-                        type="checkbox" 
-                        id="skipAi" 
-                        checked={skipAi} 
+                      <input
+                        type="checkbox"
+                        id="skipAi"
+                        checked={skipAi}
                         onChange={e => setSkipAi(e.target.checked)}
                         className="peer h-4 w-4 cursor-pointer appearance-none rounded-sm border border-border bg-background checked:border-primary checked:bg-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-all"
                       />
@@ -510,6 +523,28 @@ export default function ResumesPage() {
               </DialogContent>
             </Dialog>
 
+            {/* Live Progress Bar */}
+            {loading && uploadProgress && (
+              <div className="rounded-xl border border-border bg-card p-4 space-y-2 shadow-sm">
+                <div className="flex items-center justify-between text-xs font-bold text-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <Loader2 size={13} className="animate-spin text-primary" />
+                    Analyzing: {uploadProgress.completed} of {uploadProgress.total} resumes
+                  </span>
+                  <span className="font-mono text-primary">{uploadProgress.percent}%</span>
+                </div>
+                <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-primary to-accent h-2.5 rounded-full transition-all duration-300"
+                    style={{ width: `${uploadProgress.percent}%` }}
+                  />
+                </div>
+                <p className="text-[11px] font-medium text-muted-foreground truncate">
+                  Processing: {uploadProgress.currentFile}
+                </p>
+              </div>
+            )}
+
             {/* 6. Submit Button */}
             <button
               type="submit"
@@ -517,7 +552,7 @@ export default function ResumesPage() {
               className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-8 text-lg font-bold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:scale-[1.01] active:scale-[0.99] disabled:pointer-events-none disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 tracking-wide"
             >
               {loading ? (
-                <><Loader2 className="h-5 w-5 animate-spin" /> Processing Resumes...</>
+                <><Loader2 className="h-5 w-5 animate-spin" /> Processing Resumes ({uploadProgress?.percent ?? 0}%)...</>
               ) : (
                 <><Upload className="h-5 w-5" /> Upload & Parse Resumes</>
               )}
@@ -534,30 +569,30 @@ export default function ResumesPage() {
               <div className="grid gap-6 sm:grid-cols-2">
                 <div>
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Full Name</label>
-                  <input required value={manualData.name} onChange={e => setManualData({...manualData, name: e.target.value})} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="John Doe" />
+                  <input required value={manualData.name} onChange={e => setManualData({ ...manualData, name: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="John Doe" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Email Address</label>
-                  <input required type="email" value={manualData.email} onChange={e => setManualData({...manualData, email: e.target.value})} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="john@example.com" />
+                  <input required type="email" value={manualData.email} onChange={e => setManualData({ ...manualData, email: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="john@example.com" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Phone Number</label>
-                  <input required value={manualData.phone} onChange={e => setManualData({...manualData, phone: e.target.value})} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="+1 (555) 000-0000" />
+                  <input required value={manualData.phone} onChange={e => setManualData({ ...manualData, phone: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="+1 (555) 000-0000" />
                 </div>
                 <div>
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Assign to Job</label>
-                  <select value={manualData.job_id} onChange={e => setManualData({...manualData, job_id: e.target.value})} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80">
+                  <select value={manualData.job_id} onChange={e => setManualData({ ...manualData, job_id: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80">
                     <option value="">No specific job</option>
                     {jobs.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
                   </select>
                 </div>
                 <div className="sm:col-span-2">
                   <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Key Skills</label>
-                  <input value={manualData.skills} onChange={e => setManualData({...manualData, skills: e.target.value})} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="e.g. Python, React, FastApi" />
+                  <input value={manualData.skills} onChange={e => setManualData({ ...manualData, skills: e.target.value })} className="mt-2 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-sm font-medium shadow-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none transition-colors hover:border-border/80" placeholder="e.g. Python, React, FastApi" />
                 </div>
               </div>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={loading}
                 className="w-full flex h-14 items-center justify-center gap-2 rounded-xl bg-primary px-8 text-base font-bold text-primary-foreground shadow-lg shadow-primary/25 transition-all hover:opacity-90 disabled:opacity-50 disabled:shadow-none focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 mt-4"
               >

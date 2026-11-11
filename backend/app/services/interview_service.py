@@ -175,11 +175,12 @@ class InterviewService:
         if resolved_job_id:
             job = await db.jobs_board.find_one({"id": resolved_job_id, "organization_id": org_id})
 
-        # Prevent duplicate active interviews for the same candidate + job.
+        # Prevent duplicate active interviews for the same candidate + job + round.
         existing = await db.interviews.find_one({
             "organization_id": org_id,
             "candidate_id": candidate_id,
             "job_id": resolved_job_id,
+            "interview_type": interview_type,
             "status": {"$nin": TERMINAL_STATUSES},
         })
         if existing:
@@ -365,10 +366,16 @@ class InterviewService:
         if was_terminal:
             # A retake moves the candidate back into the interview stage, undoing
             # any decision that had already been made off the discarded attempt.
-            await db.candidates.update_one(
-                {"id": interview["candidate_id"], "organization_id": org_id},
-                {"$set": {"status": "interview", "last_interaction": datetime.utcnow()}},
-            )
+            if interview.get("interview_type") == "ai_l2_technical":
+                await db.candidates.update_one(
+                    {"id": interview["candidate_id"], "organization_id": org_id},
+                    {"$set": {"l2_status": "interview", "last_interaction": datetime.utcnow()}},
+                )
+            else:
+                await db.candidates.update_one(
+                    {"id": interview["candidate_id"], "organization_id": org_id},
+                    {"$set": {"status": "interview", "last_interaction": datetime.utcnow()}},
+                )
 
         interview = await db.interviews.find_one({"id": interview_id})
         result = await InterviewService._deliver_invite(
@@ -637,10 +644,16 @@ class InterviewService:
         email_result = None
 
         if decision == "select":
+            cand_update = {
+                "status": "selected",
+                "recruiter_verdict": feedback or "Selected by recruiter",
+                "last_interaction": now,
+            }
+            if interview.get("interview_type") == "ai_l2_technical":
+                cand_update["l2_status"] = "selected"
             await db.candidates.update_one(
                 {"id": interview["candidate_id"], "organization_id": org_id},
-                {"$set": {"status": "selected", "recruiter_verdict": feedback or "Selected by recruiter",
-                          "last_interaction": now}},
+                {"$set": cand_update},
             )
             # ONLY an explicit recruiter Select triggers the existing selection email.
             cand_for_email = dict(candidate or {})
@@ -659,10 +672,16 @@ class InterviewService:
                 interview_id=interview_id, payload={"feedback": feedback, "selection_email": email_result},
             )
         elif decision == "reject":
+            cand_update = {
+                "status": "rejected",
+                "recruiter_verdict": feedback or "Rejected by recruiter",
+                "last_interaction": now,
+            }
+            if interview.get("interview_type") == "ai_l2_technical":
+                cand_update["l2_status"] = "rejected"
             await db.candidates.update_one(
                 {"id": interview["candidate_id"], "organization_id": org_id},
-                {"$set": {"status": "rejected", "recruiter_verdict": feedback or "Rejected by recruiter",
-                          "last_interaction": now}},
+                {"$set": cand_update},
             )
             # An explicit recruiter Reject sends the post-interview regret email.
             cand_for_email = dict(candidate or {})

@@ -5,7 +5,7 @@
  * with the opaque interview token in the URL. It must never read or send the
  * recruiter JWT from localStorage.
  */
-import { API_BASE_URL } from '@/lib/api';
+import { getApiBaseUrl } from '@/lib/api';
 
 function extFor(blob: Blob): string {
   const t = blob.type || '';
@@ -16,7 +16,8 @@ function extFor(blob: Blob): string {
 }
 
 async function request(path: string, options: RequestInit = {}) {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const baseUrl = getApiBaseUrl();
+  const res = await fetch(`${baseUrl}${path}`, {
     ...options,
     // Skip ngrok's free-tier browser-warning page so responses are JSON, not
     // HTML (ignored on any other host, including Cloudflare Tunnel / prod).
@@ -27,7 +28,7 @@ async function request(path: string, options: RequestInit = {}) {
     try {
       const data = await res.json();
       detail = data?.detail || detail;
-    } catch {}
+    } catch { }
     const err = new Error(detail) as Error & { status?: number };
     err.status = res.status;
     throw err;
@@ -90,5 +91,5 @@ export const interviewApi = {
     request(`/interview-session/${encodeURIComponent(token)}/complete`, { method: 'POST' }),
 
   audioUrl: (token: string, filename: string) =>
-    `${API_BASE_URL}/interview-session/${encodeURIComponent(token)}/audio/${encodeURIComponent(filename)}`,
+    `${getApiBaseUrl()}/interview-session/${encodeURIComponent(token)}/audio/${encodeURIComponent(filename)}`,
 };

@@ -121,7 +121,7 @@ export default function CandidatesPage() {
     e.stopPropagation();
     setActionLoading(true);
     try {
-      await fetchApi(`/bolna/call-candidate/${candidateId}`, { method: 'POST' });
+      await fetchApi(`/plivo/call-candidate/${candidateId}`, { method: 'POST' });
       alert('Call initiated successfully.');
       loadData();
     } catch (err: any) {
@@ -168,8 +168,8 @@ export default function CandidatesPage() {
     try {
       const res = await fetchApi('/interviews', {
         method: 'POST',
-        body: JSON.stringify({ 
-          candidate_id: candidate.candidate_id, 
+        body: JSON.stringify({
+          candidate_id: candidate.candidate_id,
           job_id: candidate.job_id || null,
           interview_type: 'ai_l2_technical'
         }),
@@ -183,7 +183,7 @@ export default function CandidatesPage() {
         alert(`L2 AI interview created. Invitation email not sent (${res?.invite?.reason || 'no email / SMTP not configured'}). Link: ${res?.interview_url || 'n/a'}`);
       }
       await loadData();
-      if (iid) router.push(`/interviews/${iid}`);
+      if (iid) router.push(`/l2-interviews/${iid}`);
     } catch (err: any) {
       alert(`Failed to create L2 interview: ${err.message}`);
     } finally {
@@ -235,8 +235,8 @@ export default function CandidatesPage() {
   const filteredCandidates = candidates.filter(c => {
     const q = query.toLowerCase();
     const matchesSearch = c.name?.toLowerCase().includes(q) ||
-                          c.email?.toLowerCase().includes(q) ||
-                          c.role?.toLowerCase().includes(q);
+      c.email?.toLowerCase().includes(q) ||
+      c.role?.toLowerCase().includes(q);
     const matchesStatus = statusFilter ? c.status?.toUpperCase() === statusFilter : true;
     return matchesSearch && matchesStatus;
   });
@@ -253,8 +253,8 @@ export default function CandidatesPage() {
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex h-11 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm text-muted-foreground">
-          <Search size={16}/>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search candidates" className="bg-transparent outline-none placeholder:text-muted-foreground"/>
+          <Search size={16} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search candidates" className="bg-transparent outline-none placeholder:text-muted-foreground" />
         </label>
         <Select value={jobId} onChange={e => setJobId(e.target.value)} className="h-11 w-auto min-w-[160px]">
           <option value="">All Jobs</option>
@@ -279,7 +279,7 @@ export default function CandidatesPage() {
           disabled={actionLoading || !jobId}
           title={!jobId ? 'Select a specific job first' : undefined}
         >
-          {actionLoading ? <Loader2 size={16} className="animate-spin"/> : <ClipboardCheck size={16} />} Invite to AI Interview
+          {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <ClipboardCheck size={16} />} Invite to AI Interview
         </Button>
         <Button
           variant="outline"
@@ -288,7 +288,7 @@ export default function CandidatesPage() {
           disabled={actionLoading || !jobId}
           title={!jobId ? 'Select a specific job first' : undefined}
         >
-          {actionLoading ? <Loader2 size={16} className="animate-spin"/> : <Mail size={16} />} Email Interested
+          {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />} Email Interested
         </Button>
         <Button variant="secondary" size="lg" onClick={handleExport}>
           <Download size={16} /> Export
@@ -333,8 +333,8 @@ export default function CandidatesPage() {
               </TableCell>
               <TableCell>
                 <div className="flex flex-col gap-1 text-xs text-muted-foreground">
-                  {candidate.email && <span className="flex items-center gap-1"><Mail size={12}/>{candidate.email}</span>}
-                  {candidate.phone && <span className="flex items-center gap-1"><Phone size={12}/>{candidate.phone}</span>}
+                  {candidate.email && <span className="flex items-center gap-1"><Mail size={12} />{candidate.email}</span>}
+                  {candidate.phone && <span className="flex items-center gap-1"><Phone size={12} />{candidate.phone}</span>}
                 </div>
               </TableCell>
               <TableCell className="text-xs text-muted-foreground">
@@ -403,13 +403,13 @@ export default function CandidatesPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-xl bg-muted/50 p-4 text-sm">
                   {selectedCandidate.email && (
-                    <div className="flex items-center gap-2"><Mail size={14} className="text-muted-foreground"/> {selectedCandidate.email}</div>
+                    <div className="flex items-center gap-2"><Mail size={14} className="text-muted-foreground" /> {selectedCandidate.email}</div>
                   )}
                   {selectedCandidate.phone && (
-                    <div className="flex items-center gap-2"><Phone size={14} className="text-muted-foreground"/> {selectedCandidate.phone}</div>
+                    <div className="flex items-center gap-2"><Phone size={14} className="text-muted-foreground" /> {selectedCandidate.phone}</div>
                   )}
                   {selectedCandidate.created_at && (
-                    <div className="flex items-center gap-2"><Clock size={14} className="text-muted-foreground"/> {new Date(selectedCandidate.created_at).toLocaleString()}</div>
+                    <div className="flex items-center gap-2"><Clock size={14} className="text-muted-foreground" /> {new Date(selectedCandidate.created_at).toLocaleString()}</div>
                   )}
                 </div>
 
@@ -420,58 +420,58 @@ export default function CandidatesPage() {
 
                   {!selectedCandidate.latest_interview_id && (
                     <Button size="sm" onClick={() => handleInviteInterview(selectedCandidate)} disabled={actionLoading}>
-                      {actionLoading ? <Loader2 size={13} className="animate-spin" /> : <ClipboardCheck size={13} />} 
+                      {actionLoading ? <Loader2 size={13} className="animate-spin" /> : <ClipboardCheck size={13} />}
                       {String(selectedCandidate.status).toLowerCase() === 'interested' ? 'Invite to AI Interview' : 'Mark Interested & Invite'}
                     </Button>
                   )}
 
-                    {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview' && (
-                      <Button size="sm" variant="outline" onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}>
-                        <Eye size={13} /> View L1 Interview
-                      </Button>
-                    )}
+                  {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview' && (
+                    <Button size="sm" variant="outline" onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}>
+                      <Eye size={13} /> View L1 Interview
+                    </Button>
+                  )}
 
-                    {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview_completed' && (
-                      <>
-                        <Button size="sm" variant="outline" onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}>
-                          <FileText size={13} /> View L1 Report
-                        </Button>
-                        {!selectedCandidate.l2_interview_id && (
-                          <Button size="sm" variant="secondary" onClick={() => handleInviteL2Interview(selectedCandidate)} disabled={actionLoading}>
-                            <ClipboardCheck size={13} /> Invite to L2 Interview
-                          </Button>
-                        )}
-                        <Button size="sm" variant="success" onClick={() => handleInterviewDecision(selectedCandidate, 'select')} disabled={actionLoading}>
-                          <Check size={13} /> Select Candidate
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleInterviewDecision(selectedCandidate, 'reject')} disabled={actionLoading}>
-                          <X size={13} /> Reject Candidate
-                        </Button>
-                      </>
-                    )}
-                    
-                    {selectedCandidate.l2_interview_id && String(selectedCandidate.l2_status).toLowerCase() === 'interview' && (
-                      <Button size="sm" variant="outline" onClick={() => router.push(`/l2-interviews/${selectedCandidate.l2_interview_id}`)}>
-                        <Eye size={13} /> View L2 Interview
-                      </Button>
-                    )}
-                    
-                    {selectedCandidate.l2_interview_id && String(selectedCandidate.l2_status).toLowerCase() === 'interview_completed' && (
-                      <Button size="sm" variant="outline" onClick={() => router.push(`/l2-interviews/${selectedCandidate.l2_interview_id}`)}>
-                        <FileText size={13} /> View L2 Report
-                      </Button>
-                    )}
-
-                    {['selected', 'rejected'].includes(String(selectedCandidate.status).toLowerCase()) && selectedCandidate.latest_interview_id && (
+                  {selectedCandidate.latest_interview_id && String(selectedCandidate.status).toLowerCase() === 'interview_completed' && (
+                    <>
                       <Button size="sm" variant="outline" onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}>
-                        <FileText size={13} /> View AI Report
+                        <FileText size={13} /> View L1 Report
                       </Button>
-                    )}
-                  </div>
+                      {!selectedCandidate.l2_interview_id && (
+                        <Button size="sm" variant="secondary" onClick={() => handleInviteL2Interview(selectedCandidate)} disabled={actionLoading}>
+                          <ClipboardCheck size={13} /> Invite to L2 Interview
+                        </Button>
+                      )}
+                      <Button size="sm" variant="success" onClick={() => handleInterviewDecision(selectedCandidate, 'select')} disabled={actionLoading}>
+                        <Check size={13} /> Select Candidate
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleInterviewDecision(selectedCandidate, 'reject')} disabled={actionLoading}>
+                        <X size={13} /> Reject Candidate
+                      </Button>
+                    </>
+                  )}
+
+                  {selectedCandidate.l2_interview_id && String(selectedCandidate.l2_status).toLowerCase() === 'interview' && (
+                    <Button size="sm" variant="outline" onClick={() => router.push(`/l2-interviews/${selectedCandidate.l2_interview_id}`)}>
+                      <Eye size={13} /> View L2 Interview
+                    </Button>
+                  )}
+
+                  {selectedCandidate.l2_interview_id && String(selectedCandidate.l2_status).toLowerCase() === 'interview_completed' && (
+                    <Button size="sm" variant="outline" onClick={() => router.push(`/l2-interviews/${selectedCandidate.l2_interview_id}`)}>
+                      <FileText size={13} /> View L2 Report
+                    </Button>
+                  )}
+
+                  {['selected', 'rejected'].includes(String(selectedCandidate.status).toLowerCase()) && selectedCandidate.latest_interview_id && (
+                    <Button size="sm" variant="outline" onClick={() => router.push(`/interviews/${selectedCandidate.latest_interview_id}`)}>
+                      <FileText size={13} /> View AI Report
+                    </Button>
+                  )}
+                </div>
 
                 {selectedCandidate.summary && (
                   <div>
-                    <h4 className="mb-2 font-semibold text-foreground flex items-center gap-2"><FileText size={16}/> Summary</h4>
+                    <h4 className="mb-2 font-semibold text-foreground flex items-center gap-2"><FileText size={16} /> Summary</h4>
                     <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm text-muted-foreground leading-relaxed">
                       {selectedCandidate.summary}
                     </div>
@@ -489,7 +489,7 @@ export default function CandidatesPage() {
 
                 {selectedCandidate.recording_url && (
                   <div>
-                    <h4 className="mb-2 font-semibold text-foreground flex items-center gap-2"><Play size={16}/> Recording</h4>
+                    <h4 className="mb-2 font-semibold text-foreground flex items-center gap-2"><Play size={16} /> Recording</h4>
                     <audio controls src={selectedCandidate.recording_url} className="w-full mt-2" />
                   </div>
                 )}

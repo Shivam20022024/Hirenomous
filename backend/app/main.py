@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import resume_routes, voice_routes, demo_voice_routes, simulation_routes, email_routes, job_board_routes, bolna_routes, auth_routes, superadmin_routes, analytics_routes, ai_recruiter_routes, interview_routes, billing_routes, plivo_routes
+from app.api.routes import resume_routes, voice_routes, demo_voice_routes, simulation_routes, email_routes, job_board_routes, auth_routes, superadmin_routes, analytics_routes, ai_recruiter_routes, interview_routes, billing_routes, plivo_routes
 from app.core.database import connect_to_mongo, close_mongo_connection
 from app.core.config import settings
 from app.core.billing_gate import BillingGateMiddleware
@@ -108,7 +108,6 @@ app.include_router(auth_routes.router, prefix="/api/auth", tags=["Authentication
 app.include_router(superadmin_routes.router, prefix="/api/superadmin", tags=["Super Admin"])
 app.include_router(resume_routes.router, tags=["Resume Analysis"])
 # app.include_router(demo_voice_routes.router, tags=["Demo Voice Interaction"])
-app.include_router(bolna_routes.router, tags=["Bolna Integration"])
 # app.include_router(simulation_routes.router, tags=["System Simulation"])
 app.include_router(email_routes.router, tags=["Email Interaction"])
 app.include_router(job_board_routes.router, tags=["Job Board Interaction"])
@@ -117,6 +116,7 @@ app.include_router(ai_recruiter_routes.router, prefix="/api", tags=["AI Recruite
 app.include_router(interview_routes.recruiter_router, tags=["AI Interview"])
 app.include_router(interview_routes.candidate_router, tags=["AI Interview (Candidate)"])
 app.include_router(billing_routes.router, prefix="/api", tags=["Billing"])
+app.include_router(plivo_routes.plivo_router, prefix="/plivo", tags=["Plivo Telephony Direct"])
 app.include_router(plivo_routes.plivo_router, prefix="/api/v1/plivo", tags=["Plivo Telephony"])
 app.include_router(plivo_routes.plivo_router, prefix="/api/plivo", tags=["Plivo Telephony Alias"])
 

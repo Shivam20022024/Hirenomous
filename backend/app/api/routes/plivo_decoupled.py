@@ -39,6 +39,99 @@ def clean_tts_text(text: str, customer_name: str = "", is_subsequent: bool = Fal
     cleaned = re.sub(r'\s+', ' ', cleaned).strip()
     return cleaned
 
+# In-memory prewarmed greeting cache: call_id -> asyncio.Task
+DECOUPLED_GREETING_CACHE = {}
+
+async def prewarm_bakbak_connection(client: httpx.AsyncClient):
+    """Pre-warms the TCP and TLS socket to Bakbak TTS during greeting playback so the first customer turn pays 0ms TLS setup."""
+    try:
+        if client is not None:
+            await client.head("https://hub.getraya.app", timeout=4.0)
+            safe_print("[DECOUPLED PREWARM]: Bakbak TTS HTTP connection pre-warmed successfully (hot TLS socket ready).")
+    except Exception as e:
+        safe_print(f"[DECOUPLED PREWARM NOTICE]: Bakbak connection pre-warm non-critical: {e}")
+
+async def prewarm_openai_connection(client: httpx.AsyncClient, api_key: str, model: str = "gpt-4o-mini"):
+    """Pre-warms the TCP and TLS connection to api.openai.com in the background during greeting playback."""
+    try:
+        headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        payload = {"model": model, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1}
+        await client.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload, timeout=5.0)
+        safe_print("[DECOUPLED PREWARM]: OpenAI HTTP connection pre-warmed successfully (hot TLS socket ready).")
+    except Exception as e:
+        safe_print(f"[DECOUPLED PREWARM NOTICE]: OpenAI connection pre-warm non-critical: {e}")
+
+def prewarm_decoupled_greeting(
+    call_id: str,
+    company_id: str = None,
+    welcome_text: str = None,
+    bakbak_voice_id: str = None,
+    bakbak_language: str = None,
+    bakbak_model: str = None,
+):
+    """Synthesizes the welcome greeting ahead of time (while the phone is ringing)
+    so that when /stream connects, the initial voice audio is forwarded immediately (sub-10ms latency)."""
+    if not call_id:
+        return None
+    if call_id in DECOUPLED_GREETING_CACHE:
+        return DECOUPLED_GREETING_CACHE[call_id]
+
+    async def _synth():
+        try:
+            w_text = welcome_text
+            v_id = bakbak_voice_id or "3fe4afbc-3bde-4c97-ab8e-37e3fb8c7ba2"
+            v_lang = bakbak_language or "en-in"
+            v_mod = bakbak_model or "m1"
+
+            if not w_text:
+                return None
+
+            t0 = time.time()
+            api_key = settings.BAKBAK_API_KEY or os.environ.get("BAKBAK_API_KEY", "").strip()
+            sarvam_key = settings.SARVAM_API_KEY or os.environ.get("SARVAM_API_KEY", "").strip()
+
+            if api_key:
+                session = BakbakTTSSession(api_key, v_id, v_lang, v_mod)
+            elif sarvam_key:
+                session = SarvamTTSSession(sarvam_key, "simran_en_conversation", "en-IN")
+            else:
+                return None
+
+            await session.__aenter__()
+            chunks = []
+            total_sec = 0.0
+            try:
+                async for audio_b64 in session.speak(w_text):
+                    if audio_b64:
+                        chunks.append(audio_b64)
+                        try:
+                            raw_bytes = base64.b64decode(audio_b64)
+                            total_sec += len(raw_bytes) / 8000.0
+                        except Exception:
+                            pass
+            finally:
+                await session.__aexit__(None, None, None)
+
+            t1 = time.time()
+            safe_print(
+                f"[DECOUPLED PREWARM]: Pre-synthesized welcome greeting for call_id={call_id} "
+                f"({total_sec:.2f}s audio, {len(chunks)} chunks) in {t1 - t0:.2f}s"
+            )
+            return {"chunks": chunks, "duration": total_sec, "text": w_text}
+        except Exception as e:
+            safe_print(f"[DECOUPLED PREWARM ERROR]: Failed for call_id={call_id}: {e}")
+            return None
+
+    task = asyncio.create_task(_synth())
+    DECOUPLED_GREETING_CACHE[call_id] = task
+
+    async def _auto_cleanup():
+        await asyncio.sleep(60.0)
+        DECOUPLED_GREETING_CACHE.pop(call_id, None)
+
+    asyncio.create_task(_auto_cleanup())
+    return task
+
 async def _speak_and_forward(websocket: WebSocket, tts_session: Any, text: str, customer_name: str = "", is_subsequent: bool = False) -> float:
     text = clean_tts_text(text, customer_name, is_subsequent=is_subsequent)
     if not text:
@@ -67,7 +160,10 @@ async def _speak_and_forward(websocket: WebSocket, tts_session: Any, text: str, 
 async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id: str, db, ctx: dict) -> None:
     from app.api.routes.plivo_routes import finalize_plivo_call, HALLUCINATION_PHRASES, is_degenerate_transcript, PLIVO_CALL_CACHE
 
-    system_prompt = ctx.get("system_prompt", "You are an AI recruitment screening assistant.")
+    system_prompt = ctx.get(
+        "system_prompt",
+        "You are an AI recruitment screening assistant. You must conduct the entire conversation strictly in professional English. Never speak in Hindi or another language."
+    )
     welcome_text = ctx.get("welcome_text", "Hello, thank you for answering.")
     candidate_name = ctx.get("customer_name") or "there"
     
@@ -106,12 +202,44 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
         limits=httpx.Limits(max_keepalive_connections=5, keepalive_expiry=60.0)
     )
 
+    # Warm connections in background
+    asyncio.create_task(prewarm_openai_connection(openai_http_client, openai_key))
+    if hasattr(tts_session, "_client") and tts_session._client:
+        asyncio.create_task(prewarm_bakbak_connection(tts_session._client))
+
     agent_speaking_until = 0.0
     welcome_duration = 0.0
 
     try:
-        # Play opening greeting
-        if welcome_text:
+        # Check if pre-warmed welcome audio is available
+        prewarm_task = DECOUPLED_GREETING_CACHE.pop(call_id, None)
+        prewarmed_result = None
+        if prewarm_task:
+            try:
+                prewarmed_result = await asyncio.wait_for(asyncio.shield(prewarm_task), timeout=2.5)
+            except Exception as e:
+                safe_print(f"[DECOUPLED PREWARM NOTICE]: Prewarm wait ended: {e}")
+
+        if prewarmed_result and prewarmed_result.get("chunks"):
+            # FAST PATH: Play pre-synthesized audio chunks immediately (0ms delay!)
+            t_play_start = time.time()
+            welcome_duration = prewarmed_result["duration"]
+            for audio_b64 in prewarmed_result["chunks"]:
+                play_msg = {
+                    "event": "playAudio",
+                    "media": {
+                        "contentType": "audio/x-mulaw",
+                        "sampleRate": 8000,
+                        "payload": audio_b64
+                    }
+                }
+                await websocket.send_text(json.dumps(play_msg))
+            safe_print(
+                f"[DECOUPLED LATENCY]: Instant welcome audio sent {((time.time() - t_play_start)*1000):.1f}ms after stream connect! "
+                f"(Audio duration: {welcome_duration:.2f}s)"
+            )
+        elif welcome_text:
+            safe_print(f"[DECOUPLED]: No prewarm found for call_id={call_id}, synthesizing on-the-fly...")
             sentences = [s.strip() for s in re.split(r'(?<=[।?!.])\s+', welcome_text) if s.strip()]
             if len(sentences) > 1:
                 dur1 = await _speak_and_forward(websocket, tts_session, sentences[0], candidate_name)
@@ -122,7 +250,8 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
             else:
                 welcome_duration = await _speak_and_forward(websocket, tts_session, welcome_text, candidate_name)
 
-            agent_speaking_until = time.time() + welcome_duration + 0.5
+        if welcome_text:
+            agent_speaking_until = time.time() + welcome_duration + 0.3
             transcript_parts.append(f"AI: {welcome_text}")
             await db.calls.update_one({"call_id": call_id}, {"$set": {"transcript": "\n".join(transcript_parts)}})
             messages.append({"role": "assistant", "content": welcome_text})
@@ -207,6 +336,7 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
                 now = time.time()
                 is_welcome_turn = len(transcript_parts) <= 1
                 if is_welcome_turn and now < agent_speaking_until:
+                    safe_print(f"[DECOUPLED]: Speech during initial greeting suppressed: '{customer_text}'")
                     return
 
                 async with turn_lock:
@@ -239,6 +369,7 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
                                 first_sentence_flushed = True
                                 remainder_start = target_match.end()
                                 first_sent_text = target_match.group(1).strip()
+                                safe_print(f"[DECOUPLED LATENCY]: First clause ready in {time.time() - turn_start:.2f}s: '{first_sent_text}'")
                                 first_audio_task = asyncio.create_task(
                                     _speak_and_forward(websocket, tts_session, first_sent_text, candidate_name, is_subsequent=True)
                                 )
@@ -280,32 +411,63 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
 
         async def plivo_to_stt():
             while True:
-                raw_msg = await websocket.receive_text()
-                data = json.loads(raw_msg)
+                try:
+                    raw_msg = await websocket.receive_text()
+                except (WebSocketDisconnect, RuntimeError):
+                    safe_print(f"[DECOUPLED]: Plivo WebSocket closed normally for call_id={call_id}")
+                    break
+                except Exception as ws_err:
+                    safe_print(f"[DECOUPLED]: Plivo WebSocket terminated for call_id={call_id}: {ws_err}")
+                    break
+
+                try:
+                    data = json.loads(raw_msg)
+                except Exception as parse_err:
+                    continue
+
                 event_type = data.get("event")
                 if event_type == "media":
                     payload = (data.get("media") or {}).get("payload") or data.get("payload")
                     if payload and isinstance(payload, str):
                         await stt_session.push_audio(payload)
+                elif event_type == "start":
+                    start_data = data.get("start", {})
+                    call_uuid = start_data.get("callId") or start_data.get("callUuid") or data.get("callUuid")
+                    if call_uuid:
+                        PLIVO_CALL_CACHE.setdefault(call_id, {})["call_uuid"] = call_uuid
+                        await db.calls.update_one({"call_id": call_id}, {"$set": {"plivo_call_uuid": call_uuid}})
+                        safe_print(f"[DECOUPLED]: Plivo call_uuid recorded: {call_uuid}")
                 elif event_type == "stop":
                     safe_print(f"[DECOUPLED]: Plivo stream stop received for call_id={call_id}")
                     break
 
         async def stt_to_llm():
-            async for ev in stt_session.events():
-                if ev["type"] == "final":
-                    t = asyncio.create_task(handle_final_transcript(ev["text"]))
-                    turn_tasks.add(t)
-                    t.add_done_callback(turn_tasks.discard)
-                elif ev["type"] == "error":
-                    safe_print(f"[DECOUPLED STT ERROR]: {ev.get('message')}")
-                    break
+            try:
+                async for ev in stt_session.events():
+                    if ev["type"] == "speech_started":
+                        # Barge-in: if candidate speaks after initial welcome line, flush Plivo audio buffer immediately
+                        if time.time() >= agent_speaking_until:
+                            try:
+                                await websocket.send_text(json.dumps({"event": "clearAudio"}))
+                                safe_print("[BARGE-IN]: Candidate speaking, flushed Plivo carrier audio buffer.")
+                            except Exception:
+                                pass
+                    elif ev["type"] == "final":
+                        t = asyncio.create_task(handle_final_transcript(ev["text"]))
+                        turn_tasks.add(t)
+                        t.add_done_callback(turn_tasks.discard)
+                    elif ev["type"] == "error":
+                        safe_print(f"[DECOUPLED STT ERROR]: {ev.get('message')}")
+            except Exception as stt_err:
+                safe_print(f"[DECOUPLED STT LOOP ERROR]: {stt_err}")
 
         plivo_task = asyncio.create_task(plivo_to_stt())
         stt_task = asyncio.create_task(stt_to_llm())
-        done, pending = await asyncio.wait({plivo_task, stt_task}, return_when=asyncio.FIRST_COMPLETED)
+        # The primary caller connection is plivo_task; only terminate when Plivo disconnects or hangup is triggered
+        done, pending = await asyncio.wait({plivo_task}, return_when=asyncio.FIRST_COMPLETED)
         for task in pending:
             task.cancel()
+        stt_task.cancel()
 
         if turn_tasks:
             await asyncio.wait(turn_tasks, timeout=12.0)

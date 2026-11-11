@@ -31,7 +31,13 @@ def extract_text_from_pdf(file_path: str) -> str:
 
 def extract_text_from_docx(file_path: str) -> str:
     doc = Document(file_path)
-    return "\n".join([para.text for para in doc.paragraphs])
+    text_parts = [para.text for para in doc.paragraphs if para.text.strip()]
+    for table in doc.tables:
+        for row in table.rows:
+            row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+            if row_text:
+                text_parts.append(row_text)
+    return "\n".join(text_parts)
 
 def extract_text(file_path: str) -> str:
     ext = os.path.splitext(file_path)[1].lower()

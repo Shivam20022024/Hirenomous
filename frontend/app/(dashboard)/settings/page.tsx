@@ -222,8 +222,8 @@ export default function SettingsPage() {
           <button
             onClick={() => setActiveTab('profile')}
             className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'profile'
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
           >
             <User size={18} /> Profile
@@ -231,8 +231,8 @@ export default function SettingsPage() {
           <button
             onClick={() => setActiveTab('organization')}
             className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'organization'
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
           >
             <Building size={18} /> Organization
@@ -240,8 +240,8 @@ export default function SettingsPage() {
           <button
             onClick={() => setActiveTab('telephony')}
             className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'telephony'
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
           >
             <PhoneCall size={18} /> Calling Provider
@@ -249,8 +249,8 @@ export default function SettingsPage() {
           <button
             onClick={() => setActiveTab('email')}
             className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'email'
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
           >
             <Mail size={18} /> Email & Sender
@@ -258,8 +258,8 @@ export default function SettingsPage() {
           <button
             onClick={() => setActiveTab('security')}
             className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === 'security'
-                ? 'bg-primary/10 text-primary'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              ? 'bg-primary/10 text-primary'
+              : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
           >
             <Shield size={18} /> Security
@@ -409,8 +409,8 @@ export default function SettingsPage() {
                   {telephonyMessage && (
                     <div
                       className={`flex items-center gap-2 rounded-xl p-3.5 text-sm ${telephonyMessage.type === 'success'
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-destructive/15 text-destructive'
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-destructive/15 text-destructive'
                         }`}
                     >
                       {telephonyMessage.type === 'success' ? (
@@ -431,16 +431,16 @@ export default function SettingsPage() {
                       <div
                         onClick={() => setTelephonyForm({ ...telephonyForm, mode: 'shared' })}
                         className={`cursor-pointer rounded-xl border p-4 transition-all ${telephonyForm.mode === 'shared'
-                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                            : 'border-border bg-card hover:bg-muted/50'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-border bg-card hover:bg-muted/50'
                           }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-bold text-foreground">Shared Platform Line</span>
                           <span
                             className={`h-4 w-4 rounded-full border flex items-center justify-center ${telephonyForm.mode === 'shared'
-                                ? 'border-primary bg-primary'
-                                : 'border-muted-foreground'
+                              ? 'border-primary bg-primary'
+                              : 'border-muted-foreground'
                               }`}
                           >
                             {telephonyForm.mode === 'shared' && (
@@ -457,16 +457,16 @@ export default function SettingsPage() {
                       <div
                         onClick={() => setTelephonyForm({ ...telephonyForm, mode: 'custom' })}
                         className={`cursor-pointer rounded-xl border p-4 transition-all ${telephonyForm.mode === 'custom'
-                            ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                            : 'border-border bg-card hover:bg-muted/50'
+                          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+                          : 'border-border bg-card hover:bg-muted/50'
                           }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-bold text-foreground">Personal Service Provider</span>
                           <span
                             className={`h-4 w-4 rounded-full border flex items-center justify-center ${telephonyForm.mode === 'custom'
-                                ? 'border-primary bg-primary'
-                                : 'border-muted-foreground'
+                              ? 'border-primary bg-primary'
+                              : 'border-muted-foreground'
                               }`}
                           >
                             {telephonyForm.mode === 'custom' && (
@@ -605,8 +605,8 @@ export default function SettingsPage() {
                   {emailMessage && (
                     <div
                       className={`flex items-center gap-2 rounded-xl p-3.5 text-sm ${emailMessage.type === 'success'
-                          ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-                          : 'bg-destructive/15 text-destructive'
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                        : 'bg-destructive/15 text-destructive'
                         }`}
                     >
                       {emailMessage.type === 'success' ? (

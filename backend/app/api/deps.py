@@ -46,10 +46,18 @@ async def get_context_organization_id(
     current_user: UserInDB = Depends(get_current_active_user),
     x_view_as_org: Optional[str] = Header(None)
 ) -> str:
-    if current_user.role == "SUPER_ADMIN" and x_view_as_org:
-        return x_view_as_org
+    if current_user.role == "SUPER_ADMIN":
+        if x_view_as_org:
+            return x_view_as_org
+        if current_user.organization_id:
+            return current_user.organization_id
+        db = get_db()
+        first_org = await db["organizations"].find_one({"status": "active"})
+        if first_org:
+            return first_org["id"]
+        return "platform"
     
-    if not current_user.organization_id and current_user.role != "SUPER_ADMIN":
+    if not current_user.organization_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User does not belong to any organization",

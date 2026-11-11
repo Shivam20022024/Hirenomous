@@ -66,7 +66,7 @@ export default function CampaignsPage() {
 
     setActionLoading(true);
     try {
-      const res = await fetchApi('/bolna/call-shortlisted', {
+      const res = await fetchApi('/plivo/call-shortlisted', {
         method: 'POST',
         body: JSON.stringify(selectedJobs.length > 0 ? { job_ids: selectedJobs } : {})
       });
@@ -92,7 +92,7 @@ export default function CampaignsPage() {
   const handleCallSingle = async (candidateId: string) => {
     setActionLoading(true);
     try {
-      await fetchApi(`/bolna/call-candidate/${candidateId}`, { method: 'POST' });
+      await fetchApi(`/plivo/call-candidate/${candidateId}`, { method: 'POST' });
       alert('Call initiated successfully.');
       loadData();
     } catch (err: any) {
@@ -105,7 +105,7 @@ export default function CampaignsPage() {
   const handleSyncSingle = async (candidateId: string) => {
     setActionLoading(true);
     try {
-      await fetchApi(`/bolna/sync-call/${candidateId}`);
+      await fetchApi(`/plivo/sync-call/${candidateId}`);
       // No need to alert on every single one, just reload data to see if it changed
       loadData();
     } catch (err: any) {
@@ -124,7 +124,7 @@ export default function CampaignsPage() {
     if (activeCalls.length === 0) return;
     setActionLoading(true);
     try {
-      await Promise.all(activeCalls.map(c => fetchApi(`/bolna/sync-call/${c.candidate_id}`)));
+      await Promise.all(activeCalls.map(c => fetchApi(`/plivo/sync-call/${c.candidate_id}`)));
       loadData();
     } catch (err: any) {
       alert(`Failed to sync calls: ${err.message}`);
@@ -199,7 +199,7 @@ export default function CampaignsPage() {
             onClick={handleSyncAllActive}
             disabled={actionLoading || activeCalls.length === 0}
           >
-            {actionLoading ? <Loader2 size={16} className="animate-spin"/> : <RefreshCw size={16} />}
+            {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
             Sync Active ({activeCalls.length})
           </Button>
           <Button
@@ -208,7 +208,7 @@ export default function CampaignsPage() {
             onClick={handleDeleteAllCompleted}
             disabled={actionLoading || selectedForDeletion.length === 0}
           >
-            {actionLoading ? <Loader2 size={16} className="animate-spin"/> : <Trash2 size={16} />}
+            {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
             Delete Selected ({selectedForDeletion.length})
           </Button>
           <Button
@@ -217,7 +217,7 @@ export default function CampaignsPage() {
             disabled={actionLoading || selectedJobs.length === 0 || pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length === 0}
             title={selectedJobs.length === 0 ? 'Select at least one job posting first' : undefined}
           >
-            {actionLoading ? <Loader2 size={16} className="animate-spin"/> : <PlayCircle size={16} />}
+            {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <PlayCircle size={16} />}
             Call All Shortlisted ({pendingCalls.filter(c => c.status === 'shortlisted' || (c.score && c.score >= 70)).length})
           </Button>
         </div>
@@ -229,9 +229,9 @@ export default function CampaignsPage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile label="Uncalled Candidates" value={pendingCalls.length} icon={<Users size={16}/>} tone="neutral" />
-        <StatTile label="Active Calls" value={activeCalls.length} icon={<Phone size={16}/>} tone="warning" />
-        <StatTile label="Completed Calls" value={completedCalls.length} icon={<CheckCircle size={16}/>} tone="success" />
+        <StatTile label="Uncalled Candidates" value={pendingCalls.length} icon={<Users size={16} />} tone="neutral" />
+        <StatTile label="Active Calls" value={activeCalls.length} icon={<Phone size={16} />} tone="warning" />
+        <StatTile label="Completed Calls" value={completedCalls.length} icon={<CheckCircle size={16} />} tone="success" />
       </div>
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">

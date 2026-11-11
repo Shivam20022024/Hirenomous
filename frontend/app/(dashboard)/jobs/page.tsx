@@ -33,9 +33,10 @@ export default function JobsPage() {
   const loadJobs = async () => {
     try {
       const data = await fetchApi('/jobs');
-      setJobs(data);
+      setJobs(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to load jobs:', err);
+      setJobs([]);
     } finally {
       setLoading(false);
     }

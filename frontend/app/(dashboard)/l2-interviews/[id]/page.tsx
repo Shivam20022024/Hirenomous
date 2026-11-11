@@ -196,7 +196,7 @@ export default function InterviewReportPage() {
 
   return (
     <div className="mx-auto max-w-[1000px] space-y-6 px-5 py-9 lg:px-8 lg:py-14">
-      <Link href="/interviews" className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-primary">
+      <Link href="/l2-interviews" className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-primary">
         <ArrowLeft size={16} /> Back to interviews
       </Link>
 
@@ -420,11 +420,11 @@ export default function InterviewReportPage() {
           {report.status === 'completed'
             && (detail?.answers?.length ?? 0) > 0
             && !detail.answers.some((a: any) => a.has_video || a.has_audio) && (
-            <div className="rounded-xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">
-              <span className="font-bold text-foreground">Answer recordings:</span> none are available for this interview
-              (the candidate answered by text, or the video files are no longer stored). The full transcript is still available.
-            </div>
-          )}
+              <div className="rounded-xl border border-dashed border-border bg-card p-5 text-sm text-muted-foreground">
+                <span className="font-bold text-foreground">Answer recordings:</span> none are available for this interview
+                (the candidate answered by text, or the video files are no longer stored). The full transcript is still available.
+              </div>
+            )}
 
           {/* Answer recordings (recruiter-only, streamed through the authenticated endpoint) */}
           {detail?.answers?.some((a: any) => a.has_video || a.has_audio) && (
@@ -548,11 +548,10 @@ export default function InterviewReportPage() {
               transcript.map((t, i) => (
                 <div key={i} className={`flex ${t.role === 'candidate' ? 'justify-end' : 'justify-start'}`}>
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${
-                      t.role === 'candidate'
+                    className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-relaxed ${t.role === 'candidate'
                         ? 'bg-primary text-primary-foreground rounded-tr-sm'
                         : 'border border-border bg-muted text-foreground rounded-tl-sm'
-                    }`}
+                      }`}
                   >
                     <p className="mb-1 text-[11px] font-bold uppercase tracking-wider opacity-70">
                       {t.role === 'candidate' ? report.candidate_name : 'AI Interviewer'}

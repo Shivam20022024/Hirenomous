@@ -6,6 +6,7 @@ from app.services.excel_service import ExcelService
 from app.services.resume_service import ResumeService
 from app.utils.parser import extract_text
 import os
+import asyncio
 import re
 import shutil
 import uuid
@@ -113,6 +114,17 @@ async def _process_resume_file(
         logger.error(f"[{request_id}] Text extraction failed: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Failed to extract text from resume: {str(e)}")
 
+    # Resolve job description from database if job_id was provided and JD text was omitted or default
+    db = get_db()
+    if job_id and (not effective_job_description or effective_job_description.strip() == "We are looking for a software engineer with Python and AI experience."):
+        try:
+            job_doc = await db.jobs_board.find_one({"id": job_id, "organization_id": org_id})
+            if job_doc and job_doc.get("description"):
+                effective_job_description = job_doc["description"]
+                logger.info(f"[{request_id}] Resolved JD for job {job_id} from jobs_board.")
+        except Exception as e:
+            logger.warning(f"[{request_id}] Could not fetch job from jobs_board: {e}")
+
     # Process with AI or Skip AI
     try:
         if skip_ai:
@@ -154,8 +166,9 @@ async def _process_resume_file(
     if not phone or str(phone).strip().lower() in ["", "n/a", "none", "null"]:
         logger.warning(f"[{request_id}] No phone number found for {original_filename}. Adding as rejected.")
         status = "rejected"
-        result["reason"] = "Rejected: Could not detect a valid phone number."
-        score = 0.0 # Force a low score
+        prior_reason = result.get("reason", "")
+        result["reason"] = f"Rejected (No phone number detected). {prior_reason}".strip()
+        # Keep the candidate's actual AI match score intact instead of zeroing out to 0.0
     else:
         # If we hit a fallback (50.0) due to processing failure, mark as pending for human review
         if score == 50.0 and ("failure" in result.get("reason", "").lower() or "error" in result.get("reason", "").lower()):
@@ -192,9 +205,8 @@ async def _process_resume_file(
         await db.candidates.insert_one(candidate_data)
         logger.info(f"[{request_id}] DB updated successfully.")
 
-        logger.info(f"[{request_id}] Excel update started...")
-        ExcelService.update_candidate_excel(candidate_data, org_id)
-        logger.info(f"[{request_id}] Excel updated successfully.")
+        # Offload Excel update to background threadpool so HTTP response is returned immediately
+        asyncio.create_task(run_in_threadpool(ExcelService.update_candidate_excel, candidate_data, org_id))
     except Exception as e:
         logger.error(f"[{request_id}] Database/Excel stage failed: {str(e)}")
         logger.warning(f"[{request_id}] Returning parsed candidate data without persistence.")
@@ -583,9 +595,18 @@ class StatusUpdate(BaseModel):
 @router.put("/candidates/{candidate_id}/status")
 async def update_candidate_status(candidate_id: str, payload: StatusUpdate, org_id: str = Depends(get_context_organization_id)):
     db = get_db()
+    update_doc = {"status": payload.status}
+    st = payload.status.lower().strip()
+    if st == "shortlisted":
+        update_doc["shortlisted"] = True
+    elif st == "rejected":
+        update_doc["shortlisted"] = False
+    elif st in ["interested", "calling", "interview", "interview_completed", "selected", "hired"]:
+        update_doc["shortlisted"] = True
+
     result = await db.candidates.update_one(
         {"id": candidate_id, "organization_id": org_id},
-        {"$set": {"status": payload.status}}
+        {"$set": update_doc}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Candidate not found")
@@ -596,11 +617,19 @@ async def update_candidate_status(candidate_id: str, payload: StatusUpdate, org_
 async def get_shortlisted_candidates(job_id: str = None, org_id: str = Depends(get_context_organization_id)):
     logger.info("Fetching shortlisted candidates...")
     db = get_db()
-    query = {"resume_score": {"$gte": settings.SHORTLIST_THRESHOLD}, "organization_id": org_id}
+    query = {
+        "status": {"$ne": "rejected"},
+        "$or": [
+            {"status": "shortlisted"},
+            {"shortlisted": True},
+            {"resume_score": {"$gte": settings.SHORTLIST_THRESHOLD}}
+        ],
+        "organization_id": org_id
+    }
     if job_id:
         query["job_id"] = job_id
     cursor = db.candidates.find(query).sort("created_at", -1)
-    candidates = await cursor.to_list(length=100)
+    candidates = await cursor.to_list(length=1000)
     
     results = [format_candidate_response(c) for c in candidates]
     return results
@@ -668,7 +697,7 @@ async def get_final_candidates(job_id: str = None, org_id: str = Depends(get_con
     if job_id:
         query["job_id"] = job_id
     cursor = db.candidates.find(query).sort("created_at", -1)
-    candidates = await cursor.to_list(length=100)
+    candidates = await cursor.to_list(length=1000)
     
     results = [format_candidate_response(c) for c in candidates]
     return results

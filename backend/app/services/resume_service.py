@@ -111,11 +111,11 @@ class ResumeService:
 
     @classmethod
     async def get_client(cls):
-        """Returns a shared AsyncClient instance."""
+        """Returns a shared AsyncClient instance with high-throughput pool."""
         if cls._client is None or cls._client.is_closed:
             cls._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(60.0, connect=10.0),
-                limits=httpx.Limits(max_keepalive_connections=15, max_connections=25)
+                limits=httpx.Limits(max_keepalive_connections=25, max_connections=35)
             )
         return cls._client
 
@@ -156,7 +156,7 @@ class ResumeService:
         {job_description}
 
         Resume text:
-        {text[:4000]}
+        {text[:16000]}
         """
         payload = {
             "model": "gpt-4o-mini",
