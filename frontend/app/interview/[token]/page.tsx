@@ -394,8 +394,8 @@ export default function CandidateVideoInterviewPage() {
           }
 
           const silentDuration = now - silenceStartRef.current;
-          const SILENCE_TRIGGER_MS = 3500; // 3.5s silence triggers countdown
-          const COUNTDOWN_TOTAL_MS = 3000; // 3s countdown (3, 2, 1)
+          const SILENCE_TRIGGER_MS = 2200; // 2.2s silence triggers countdown
+          const COUNTDOWN_TOTAL_MS = 2000; // 2s countdown (2, 1)
 
           if (silentDuration >= SILENCE_TRIGGER_MS) {
             const countdownElapsed = silentDuration - SILENCE_TRIGGER_MS;
@@ -468,7 +468,7 @@ export default function CandidateVideoInterviewPage() {
           const rec = new SpeechRec();
           rec.continuous = true;
           rec.interimResults = true;
-          rec.lang = 'en-US';
+          rec.lang = typeof navigator !== 'undefined' && navigator.language ? navigator.language : 'en-US';
           rec.onresult = (ev: any) => {
             let trans = '';
             for (let i = 0; i < ev.results.length; ++i) {
@@ -477,6 +477,12 @@ export default function CandidateVideoInterviewPage() {
             liveTranscriptRef.current = trans.trim();
           };
           rec.onerror = () => {};
+          rec.onend = () => {
+            // Auto re-arm if the candidate is still actively recording
+            if (liveSpeechRef.current) {
+              try { rec.start(); } catch {}
+            }
+          };
           rec.start();
           liveSpeechRef.current = rec;
         } catch {}

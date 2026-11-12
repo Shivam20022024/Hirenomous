@@ -3,6 +3,7 @@ try:
 except Exception:
     WhisperModel = None
 import os
+import httpx
 from app.core.config import settings
 
 import requests
@@ -23,7 +24,7 @@ class VoiceService:
 
     @classmethod
     async def transcribe_with_openai(cls, audio_path: str) -> str:
-        """Transcribe audio using OpenAI Whisper API for lower latency."""
+        """Transcribe audio using OpenAI Whisper API with non-blocking async HTTP."""
         if not settings.OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY is not set.")
 
@@ -32,12 +33,16 @@ class VoiceService:
         
         try:
             with open(audio_path, "rb") as audio_file:
-                files = {"file": audio_file}
+                content = audio_file.read()
+                filename = os.path.basename(audio_path)
+            
+            async with httpx.AsyncClient(timeout=25.0) as client:
+                files = {"file": (filename, content, "audio/mpeg")}
                 data = {
                     "model": settings.OPENAI_STT_MODEL,
                     "response_format": "json"
                 }
-                response = requests.post(url, headers=headers, files=files, data=data, timeout=60)
+                response = await client.post(url, headers=headers, files=files, data=data)
                 response.raise_for_status()
                 return response.json().get("text", "").strip()
         except Exception as e:

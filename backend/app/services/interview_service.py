@@ -844,6 +844,16 @@ class InterviewService:
             interview_id=interview["id"],
         )
         interview = await db.interviews.find_one({"id": interview["id"]})
+
+        # Pre-warm audio for subsequent questions in the background
+        async def _prewarm():
+            for q in plan[1:]:
+                try:
+                    await TTSService.generate_speech(q["text"], voice=settings.INTERVIEW_TTS_VOICE)
+                except Exception:
+                    pass
+        asyncio.create_task(_prewarm())
+
         return await InterviewService._question_payload(interview)
 
     @staticmethod
@@ -1017,6 +1027,16 @@ class InterviewService:
              "$push": {"transcript": {"role": "ai", "text": next_q["text"], "ts": datetime.utcnow()}}},
         )
         interview = await db.interviews.find_one({"id": interview["id"]})
+
+        # Pre-warm audio for subsequent questions in the background
+        async def _prewarm():
+            for q in plan[1:]:
+                try:
+                    await TTSService.generate_speech(q["text"], voice=settings.INTERVIEW_TTS_VOICE)
+                except Exception:
+                    pass
+        asyncio.create_task(_prewarm())
+
         return await InterviewService._question_payload(interview)
 
     @staticmethod
