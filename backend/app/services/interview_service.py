@@ -500,7 +500,7 @@ class InterviewService:
         for r in rows:
             s = _serialize(r)
             cand = cand_map.get(r.get("candidate_id"), {})
-            s["candidate_name"] = cand.get("name") or "Unknown"
+            s["candidate_name"] = cand.get("name") or r.get("candidate_name") or "Candidate"
             s["position"] = job_map.get(r.get("job_id")) or cand.get("role") or "Unassigned"
             s["overall_score"] = (r.get("scores") or {}).get("overall")
             out.append(s)
@@ -517,8 +517,8 @@ class InterviewService:
         candidate = await db.candidates.find_one(
             {"id": interview["candidate_id"], "organization_id": org_id}, {"_id": 0, "name": 1, "email": 1, "role": 1}
         )
-        s["candidate_name"] = (candidate or {}).get("name") or "Unknown"
-        s["candidate_email"] = (candidate or {}).get("email")
+        s["candidate_name"] = (candidate or {}).get("name") or interview.get("candidate_name") or "Candidate"
+        s["candidate_email"] = (candidate or {}).get("email") or interview.get("candidate_email")
         if interview.get("job_id"):
             job = await db.jobs_board.find_one(
                 {"id": interview["job_id"], "organization_id": org_id}, {"_id": 0, "title": 1}
@@ -554,7 +554,7 @@ class InterviewService:
             "interview_id": interview["id"],
             "candidate_id": interview["candidate_id"],
             "job_id": interview.get("job_id"),
-            "candidate_name": (candidate or {}).get("name") or "Unknown",
+            "candidate_name": (candidate or {}).get("name") or interview.get("candidate_name") or "Candidate",
             "position": position,
             "status": interview.get("status"),
             "evaluation_status": interview.get("evaluation_status"),

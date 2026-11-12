@@ -2,18 +2,18 @@
 
 import { useEffect, useState } from 'react';
 import { fetchApi } from '@/lib/api';
-import { 
-  Wallet, 
-  CreditCard, 
-  PhoneCall, 
-  Clock, 
-  TrendingUp, 
-  Plus, 
-  RefreshCw, 
-  CheckCircle2, 
-  X, 
-  Loader2, 
-  Zap, 
+import {
+  Wallet,
+  CreditCard,
+  PhoneCall,
+  Clock,
+  TrendingUp,
+  Plus,
+  RefreshCw,
+  CheckCircle2,
+  X,
+  Loader2,
+  Zap,
   ArrowDownLeft,
   ArrowUpRight
 } from 'lucide-react';
@@ -69,7 +69,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<'usage' | 'transactions'>('usage');
-  
+
   // Top-Up Modal State
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupAmount, setTopupAmount] = useState<number>(500);
@@ -229,8 +229,8 @@ export default function BillingPage() {
                   {dashboard?.is_unlimited || dashboard?.plan_name?.includes('Unlimited')
                     ? 'Unlimited Calling Active'
                     : dashboard?.is_trial && (dashboard?.minutes_remaining ?? 0) > 0
-                    ? `${dashboard.minutes_remaining}m Trial Active`
-                    : (dashboard?.balance && dashboard.balance > 0 ? 'Active Credits' : 'Low Balance')}
+                      ? `${dashboard.minutes_remaining}m Trial Active`
+                      : (dashboard?.balance && dashboard.balance > 0 ? 'Active Credits' : 'Low Balance')}
                 </Badge>
                 <span className="text-xs text-muted-foreground">{dashboard?.plan_name || 'Pay-As-You-Go'}</span>
               </div>
@@ -251,8 +251,8 @@ export default function BillingPage() {
                 {dashboard?.is_unlimited || dashboard?.plan_name?.includes('Unlimited')
                   ? 'Unlimited demo & internal calls'
                   : dashboard?.is_trial
-                  ? `${dashboard?.minutes_remaining ?? 10}m trial calling left`
-                  : `${dashboard?.total_calls ?? 0} total interview calls made`}
+                    ? `${dashboard?.minutes_remaining ?? 10}m trial calling left`
+                    : `${dashboard?.total_calls ?? 0} total interview calls made`}
               </p>
             </div>
 
@@ -295,22 +295,20 @@ export default function BillingPage() {
             <div className="flex border-b border-border">
               <button
                 onClick={() => setActiveTab('usage')}
-                className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
-                  activeTab === 'usage'
+                className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${activeTab === 'usage'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 <PhoneCall size={16} />
                 Call Usage ({usage.length})
               </button>
               <button
                 onClick={() => setActiveTab('transactions')}
-                className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${
-                  activeTab === 'transactions'
+                className={`flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-semibold transition-colors ${activeTab === 'transactions'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-muted-foreground hover:text-foreground'
-                }`}
+                  }`}
               >
                 <CreditCard size={16} />
                 Transactions ({transactions.length})
@@ -401,9 +399,8 @@ export default function BillingPage() {
                         {transactions.map((tx, i) => (
                           <tr key={tx.id || i} className="hover:bg-muted/20">
                             <td className="px-5 py-3.5">
-                              <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${
-                                tx.type === 'CREDIT' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'
-                              }`}>
+                              <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold ${tx.type === 'CREDIT' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600'
+                                }`}>
                                 {tx.type === 'CREDIT' ? <ArrowDownLeft size={12} /> : <ArrowUpRight size={12} />}
                                 {tx.type}
                               </span>
@@ -411,9 +408,8 @@ export default function BillingPage() {
                             <td className="px-5 py-3.5 text-foreground font-medium">
                               {tx.description || (tx.type === 'CREDIT' ? 'Recharge' : 'Call Usage')}
                             </td>
-                            <td className={`px-5 py-3.5 text-right font-mono font-bold ${
-                              tx.type === 'CREDIT' ? 'text-emerald-600' : 'text-foreground'
-                            }`}>
+                            <td className={`px-5 py-3.5 text-right font-mono font-bold ${tx.type === 'CREDIT' ? 'text-emerald-600' : 'text-foreground'
+                              }`}>
                               {tx.type === 'CREDIT' ? '+' : '-'}₹{(tx.amount || 0).toFixed(2)}
                             </td>
                             <td className="px-5 py-3.5 text-xs font-mono text-muted-foreground uppercase">
@@ -471,11 +467,10 @@ export default function BillingPage() {
                       setTopupAmount(amt);
                       setCustomAmount('');
                     }}
-                    className={`rounded-xl border p-3 text-center font-bold text-sm transition-all ${
-                      topupAmount === amt && !customAmount
+                    className={`rounded-xl border p-3 text-center font-bold text-sm transition-all ${topupAmount === amt && !customAmount
                         ? 'border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary'
                         : 'border-border bg-background text-foreground hover:border-primary/50'
-                    }`}
+                      }`}
                   >
                     ₹{amt}
                   </button>
