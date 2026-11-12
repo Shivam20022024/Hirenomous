@@ -4,7 +4,7 @@ export default function PrivacyPage() {
   return (
     <LegalPageLayout title="Privacy Policy" updated="September 2026">
       <p className="text-muted-foreground">
-        This Privacy Policy explains what information HirePilot (operated by Novalantis) collects, how it is
+        This Privacy Policy explains what information HirePilot collects, how it is
         used, and how it is protected — for both Customer (hiring company) users and the candidates they
         process through the platform.
       </p>
@@ -16,7 +16,7 @@ export default function PrivacyPage() {
           details, AI phone/video interview recordings, transcripts, and AI-generated evaluation scores.
         </p>
         <p><strong>Payment data:</strong> billing status and subscription dates. Card and payment details are
-          collected and processed directly by our payment partner, Razorpay — Novalantis does not store your
+          collected and processed directly by our payment partner, Razorpay — HirePilot does not store your
           card number, CVV, or bank details.</p>
         <p><strong>Usage data:</strong> log-in activity and basic technical logs (IP address, browser) used for
           security and interview-integrity checks (e.g. detecting unusual tab-switching or multiple devices
@@ -87,7 +87,7 @@ export default function PrivacyPage() {
       <Section heading="10. Contact">
         <p>
           For privacy questions or requests, email{' '}
-          <a href="mailto:info@novalantis.com" className="text-primary hover:underline">info@novalantis.com</a>.
+          <a href="mailto:support@hirepilot.ai" className="text-primary hover:underline">support@hirepilot.ai</a>.
         </p>
       </Section>
     </LegalPageLayout>

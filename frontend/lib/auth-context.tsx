@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const raw = localStorage.getItem('viewAsOrg');
       if (raw) setViewAsOrgState(JSON.parse(raw));
-    } catch {}
+    } catch { }
   }, []);
 
   const setViewAsOrg = (org: ViewAsOrg | null) => {

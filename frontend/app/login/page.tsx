@@ -126,7 +126,7 @@ export default function LoginPage() {
             <Link href="/contact" className="hover:text-foreground hover:underline">Contact</Link>
           </nav>
           <p className="text-xs text-muted-foreground">
-            A product by <span className="font-semibold text-foreground tracking-wide">NOVALANTIS</span>
+            © {new Date().getFullYear()} HirePilot. All rights reserved.
           </p>
         </div>
       </div>

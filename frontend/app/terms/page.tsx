@@ -5,7 +5,7 @@ export default function TermsPage() {
     <LegalPageLayout title="Terms & Conditions" updated="September 2026">
       <p className="text-muted-foreground">
         These Terms &amp; Conditions (&ldquo;Terms&rdquo;) govern your use of HirePilot, an AI-powered
-        hiring automation platform provided by Novalantis (&ldquo;Novalantis&rdquo;, &ldquo;we&rdquo;,
+        hiring automation platform (&ldquo;HirePilot&rdquo;, &ldquo;we&rdquo;,
         &ldquo;us&rdquo;). By creating an account or using HirePilot, you agree to these Terms.
       </p>
 
@@ -14,13 +14,13 @@ export default function TermsPage() {
           HirePilot helps companies (&ldquo;Customers&rdquo;) screen, interview, and evaluate job candidates
           using AI — including resume analysis, AI phone screening calls, AI video interviews, and hiring
           analytics. Customers act as the employer of record for candidates they process through the platform;
-          Novalantis provides the software only.
+          HirePilot provides the software only.
         </p>
       </Section>
 
       <Section heading="2. Accounts and access">
         <p>
-          A Customer account is created either directly or after Novalantis approves a submitted access
+          A Customer account is created either directly or after HirePilot approves a submitted access
           request. You are responsible for the accuracy of the information you provide and for maintaining the
           confidentiality of your login credentials, and for all activity under your account.
         </p>
@@ -51,7 +51,7 @@ export default function TermsPage() {
       <Section heading="5. Candidate data">
         <p>
           Candidate information submitted through HirePilot (resumes, contact details, interview recordings
-          and transcripts, evaluation scores) belongs to the Customer that collected it. Novalantis processes
+          and transcripts, evaluation scores) belongs to the Customer that collected it. HirePilot processes
           this data solely to provide the service, as described in our{' '}
           <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>. Customers are
           responsible for ensuring they have a lawful basis to collect and process candidate data under
@@ -61,7 +61,7 @@ export default function TermsPage() {
 
       <Section heading="6. Intellectual property">
         <p>
-          HirePilot, its underlying software, and all associated branding are the property of Novalantis.
+          HirePilot, its underlying software, and all associated branding are the property of HirePilot.
           Customers retain ownership of the data they upload to the platform.
         </p>
       </Section>
@@ -71,14 +71,14 @@ export default function TermsPage() {
           We aim to keep HirePilot available and reliable but do not guarantee uninterrupted access. AI
           outputs (screening scores, evaluations, recommendations) are decision-support tools, not a
           replacement for human judgment — Customers remain responsible for their own hiring decisions. To the
-          maximum extent permitted by law, Novalantis is not liable for indirect, incidental, or consequential
+          maximum extent permitted by law, HirePilot is not liable for indirect, incidental, or consequential
           damages arising from use of the service.
         </p>
       </Section>
 
       <Section heading="8. Termination">
         <p>
-          Either party may stop using/providing the service at any time. Novalantis may suspend or terminate an
+          Either party may stop using/providing the service at any time. HirePilot may suspend or terminate an
           account for violation of these Terms or non-payment after the trial/paid period ends.
         </p>
       </Section>
@@ -97,7 +97,7 @@ export default function TermsPage() {
       <Section heading="11. Contact">
         <p>
           Questions about these Terms can be sent to{' '}
-          <a href="mailto:info@novalantis.com" className="text-primary hover:underline">info@novalantis.com</a>.
+          <a href="mailto:support@hirepilot.ai" className="text-primary hover:underline">support@hirepilot.ai</a>.
         </p>
       </Section>
     </LegalPageLayout>

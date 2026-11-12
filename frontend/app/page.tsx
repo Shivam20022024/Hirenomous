@@ -365,9 +365,9 @@ export default function RootPage() {
             <Link href={primaryHref} className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-8 py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-md sm:w-auto">
               Get started <ArrowRight size={16} />
             </Link>
-            <a href="https://novalantis.com/contact-us/" className="inline-flex w-full items-center justify-center rounded-full border border-border px-8 py-3.5 text-sm font-bold text-foreground transition-all hover:-translate-y-0.5 hover:bg-muted sm:w-auto">
+            <Link href="/contact" className="inline-flex w-full items-center justify-center rounded-full border border-border px-8 py-3.5 text-sm font-bold text-foreground transition-all hover:-translate-y-0.5 hover:bg-muted sm:w-auto">
               Contact sales
-            </a>
+            </Link>
           </div>
         </Reveal>
       </section>
@@ -388,8 +388,8 @@ export default function RootPage() {
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-ink-foreground/50">Company</p>
               <ul className="mt-4 space-y-2.5 text-sm">
-                <li><a href="https://novalantis.com" target="_blank" rel="noreferrer" className="hover:text-ink-foreground">About Novalantis</a></li>
-                <li><a href="https://novalantis.com/contact-us/" target="_blank" rel="noreferrer" className="hover:text-ink-foreground">Contact sales</a></li>
+                <li><Link href="/contact" className="hover:text-ink-foreground">About HirePilot</Link></li>
+                <li><Link href="/contact" className="hover:text-ink-foreground">Contact sales</Link></li>
               </ul>
             </div>
             <div>
@@ -410,7 +410,7 @@ export default function RootPage() {
           <div className="flex flex-col items-center gap-2 pt-8 text-center">
             <span className="text-sm font-bold text-ink-foreground">HirePilot</span>
             <p className="text-[11px] font-semibold uppercase tracking-widest">
-              © {new Date().getFullYear()} HirePilot. A product by Novalantis.
+              © {new Date().getFullYear()} HirePilot. All rights reserved.
             </p>
           </div>
         </div>

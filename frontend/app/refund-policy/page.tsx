@@ -40,7 +40,7 @@ export default function RefundPolicyPage() {
         </ul>
         <p>
           If you believe you were charged in error, contact us within 7 days of the charge at{' '}
-          <a href="mailto:info@novalantis.com" className="text-primary hover:underline">info@novalantis.com</a>{' '}
+          <a href="mailto:support@hirepilot.ai" className="text-primary hover:underline">support@hirepilot.ai</a>{' '}
           with your company name and payment reference, and we will investigate promptly. Approved refunds are
           processed back to the original payment method via Razorpay, typically within 5–7 business days.
         </p>
@@ -56,7 +56,7 @@ export default function RefundPolicyPage() {
       <Section heading="Contact">
         <p>
           For any billing question, email{' '}
-          <a href="mailto:info@novalantis.com" className="text-primary hover:underline">info@novalantis.com</a>.
+          <a href="mailto:support@hirepilot.ai" className="text-primary hover:underline">support@hirepilot.ai</a>.
         </p>
       </Section>
     </LegalPageLayout>
