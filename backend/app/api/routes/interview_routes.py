@@ -209,6 +209,15 @@ async def process_turn(
     )
 
 
+@candidate_router.post("/{token}/video")
+async def upload_turn_video(
+    token: str = Path(..., min_length=20),
+    question_id: Optional[str] = Form(None),
+    video: UploadFile = File(...),
+):
+    return await InterviewService.attach_video(token=token, question_id=question_id, video=video)
+
+
 @candidate_router.post("/{token}/complete")
 async def complete_session(token: str = Path(..., min_length=20)):
     return await InterviewService.complete_session(token)

@@ -29,6 +29,7 @@ interface SessionInfo {
 
 interface QuestionPayload {
   done: boolean;
+  question_id?: string;
   question_text?: string;
   is_followup?: boolean;
   question_number?: number;
@@ -104,6 +105,11 @@ export default function CandidateVideoInterviewPage() {
   const silenceSuppressedUntilRef = useRef<number>(0);
   const recSecondsRef = useRef<number>(0);
   const isSubmittingTurnRef = useRef(false);
+
+  // Real-time browser speech recognition & async video uploads
+  const liveSpeechRef = useRef<any>(null);
+  const liveTranscriptRef = useRef<string>('');
+  const pendingUploadsRef = useRef<Promise<any>[]>([]);
 
   // ---- integrity telemetry (accumulated per question, best-effort) ----
   const focusLost = useRef(0);
@@ -439,14 +445,42 @@ export default function CandidateVideoInterviewPage() {
     try {
       const vType = pickMime(VIDEO_MIME);
       const aType = pickMime(AUDIO_MIME);
-      const vRec = new MediaRecorder(streamRef.current, vType ? { mimeType: vType } : undefined);
+      const vRec = new MediaRecorder(
+        streamRef.current,
+        vType ? { mimeType: vType, videoBitsPerSecond: 600000 } : { videoBitsPerSecond: 600000 }
+      );
       vRec.ondataavailable = (e) => e.data.size > 0 && vChunks.current.push(e.data);
       vRecRef.current = vRec;
 
       const audioOnly = new MediaStream(streamRef.current.getAudioTracks());
-      const aRec = new MediaRecorder(audioOnly, aType ? { mimeType: aType } : undefined);
+      const aRec = new MediaRecorder(
+        audioOnly,
+        aType ? { mimeType: aType, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 }
+      );
       aRec.ondataavailable = (e) => e.data.size > 0 && aChunks.current.push(e.data);
       aRecRef.current = aRec;
+
+      // Start real-time browser speech recognition for zero-latency answer transcription
+      liveTranscriptRef.current = '';
+      if (typeof window !== 'undefined' && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+        try {
+          const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+          const rec = new SpeechRec();
+          rec.continuous = true;
+          rec.interimResults = true;
+          rec.lang = 'en-US';
+          rec.onresult = (ev: any) => {
+            let trans = '';
+            for (let i = 0; i < ev.results.length; ++i) {
+              trans += ev.results[i][0].transcript + ' ';
+            }
+            liveTranscriptRef.current = trans.trim();
+          };
+          rec.onerror = () => {};
+          rec.start();
+          liveSpeechRef.current = rec;
+        } catch {}
+      }
 
       vRec.start();
       aRec.start();
@@ -466,6 +500,10 @@ export default function CandidateVideoInterviewPage() {
   // ---- AI question audio & auto-listen flow ----
   const playQuestionAudio = useCallback(async (q: QuestionPayload) => {
     stopVadMonitoring();
+    if (liveSpeechRef.current) {
+      try { liveSpeechRef.current.stop(); } catch {}
+      liveSpeechRef.current = null;
+    }
     try {
       if (vRecRef.current?.state === 'recording') vRecRef.current.stop();
       if (aRecRef.current?.state === 'recording') aRecRef.current.stop();
@@ -563,6 +601,15 @@ export default function CandidateVideoInterviewPage() {
     stopVadMonitoring();
     if (timerRef.current) clearInterval(timerRef.current);
 
+    if (liveSpeechRef.current) {
+      try { liveSpeechRef.current.stop(); } catch {}
+      liveSpeechRef.current = null;
+    }
+
+    const curQ = questionRef.current;
+    const answeredQId = curQ?.question_id;
+    const recognizedText = liveTranscriptRef.current?.trim() || undefined;
+
     const finalize = (rec: MediaRecorder | null, chunks: Blob[]): Promise<Blob | null> =>
       new Promise((resolve) => {
         if (!rec || rec.state !== 'recording') {
@@ -570,7 +617,7 @@ export default function CandidateVideoInterviewPage() {
         }
         const timeout = setTimeout(() => {
           resolve(chunks.length > 0 ? new Blob(chunks, { type: chunks[0]?.type || rec.mimeType || 'video/webm' }) : null);
-        }, 1200);
+        }, 400);
 
         rec.onstop = () => {
           clearTimeout(timeout);
@@ -588,13 +635,22 @@ export default function CandidateVideoInterviewPage() {
       finalize(vRecRef.current, vChunks.current),
       finalize(aRecRef.current, aChunks.current),
     ]);
-    pendingVideo.current = vBlob;
-    pendingAudio.current = aBlob;
+
+    // Dispatch video recording upload asynchronously in background so next question is not blocked
+    if (vBlob) {
+      const up = interviewApi.uploadVideo(token, answeredQId, vBlob).catch((e) => {
+        console.warn('Background video upload warning:', e);
+      });
+      pendingUploadsRef.current.push(up);
+    }
+
+    pendingVideo.current = null; // Do NOT block turn call with massive video
+    pendingAudio.current = aBlob; // Small audio clip for fallback verification
     pendingDuration.current = recSeconds;
     setRecording(false);
-    await submitTurn();
+    await submitTurn(recognizedText);
     isSubmittingTurnRef.current = false;
-  }, [recSeconds, stopVadMonitoring, submitTurn]);
+  }, [recSeconds, stopVadMonitoring, submitTurn, token]);
 
   stopAndSubmitRef.current = stopAndSubmit;
 
@@ -613,6 +669,9 @@ export default function CandidateVideoInterviewPage() {
 
   const finishInterview = async () => {
     try {
+      if (pendingUploadsRef.current.length > 0) {
+        await Promise.allSettled(pendingUploadsRef.current);
+      }
       const res = await interviewApi.complete(token);
       setCompleteMessage(res?.message || 'Your interview is complete. Thank you for your time.');
     } catch {

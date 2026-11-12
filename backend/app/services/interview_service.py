@@ -907,15 +907,16 @@ class InterviewService:
                     upload=audio, question_id=pending["id"],
                 )
 
-            # STT: prefer the small dedicated audio clip; else fall back to the
-            # video file (OpenAI Whisper extracts audio from webm/mp4).
-            stt_source = audio_ref or video_ref
-            if stt_source:
-                transcript_text = await InterviewService._transcribe(InterviewStorage.abs_path(stt_source))
-                transcribed = bool(transcript_text)
-            elif answer_text:
+            # STT: prefer instant client-side speech recognition if provided;
+            # fall back to Whisper STT only if answer_text was not captured.
+            if answer_text and answer_text.strip():
                 transcript_text = answer_text.strip()
                 transcribed = True
+            else:
+                stt_source = audio_ref or video_ref
+                if stt_source:
+                    transcript_text = await InterviewService._transcribe(InterviewStorage.abs_path(stt_source))
+                    transcribed = bool(transcript_text)
             if not transcript_text:
                 transcript_text = "(no audible answer was captured)"
 
@@ -1064,6 +1065,35 @@ class InterviewService:
         asyncio.create_task(InterviewService.evaluate(interview["id"]))
 
         return {"status": "completed", "message": "Your interview is complete. Thank you for your time."}
+
+    @staticmethod
+    async def attach_video(token: str, question_id: Optional[str], video: UploadFile) -> dict:
+        """Asynchronously attach a candidate's webcam video answer recording in background."""
+        interview = await resolve_interview_by_token(token, require_active=False)
+        db = get_db()
+        target_qid = question_id
+        if not target_qid:
+            for a in reversed(interview.get("answers") or []):
+                if not a.get("video_ref"):
+                    target_qid = a.get("question_id")
+                    break
+        if not target_qid:
+            return {"ok": False, "detail": "No matching question found"}
+
+        video_ref = await InterviewStorage.save_upload(
+            interview_id=interview["id"], category="interview_video",
+            upload=video, question_id=target_qid,
+        )
+        await db.interviews.update_one(
+            {"id": interview["id"], "answers.question_id": target_qid},
+            {"$set": {"answers.$.video_ref": video_ref, "updated_at": datetime.utcnow()}},
+        )
+        await AuditService.record(
+            organization_id=interview["organization_id"], event_type="interview_video_uploaded",
+            actor_type="candidate", candidate_id=interview["candidate_id"], job_id=interview.get("job_id"),
+            interview_id=interview["id"], payload={"question_id": target_qid},
+        )
+        return {"ok": True, "video_ref": video_ref}
 
     # ------------------------------------------------------------------
     # Evaluation
@@ -1240,6 +1270,7 @@ class InterviewService:
         return {
             "done": False,
             "resumed": resume,
+            "question_id": pending.get("id"),
             "question_text": pending["text"],
             "question_type": pending.get("question_type"),
             "is_followup": pending.get("is_followup", False),

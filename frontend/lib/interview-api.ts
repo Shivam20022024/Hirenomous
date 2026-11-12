@@ -87,6 +87,19 @@ export const interviewApi = {
     });
   },
 
+  /**
+   * Asynchronously upload answer webcam video in background without blocking interview questions.
+   */
+  uploadVideo: (token: string, questionId: string | undefined, video: Blob) => {
+    const form = new FormData();
+    if (questionId) form.append('question_id', questionId);
+    form.append('video', video, `answer${extFor(video)}`);
+    return request(`/interview-session/${encodeURIComponent(token)}/video`, {
+      method: 'POST',
+      body: form,
+    });
+  },
+
   complete: (token: string) =>
     request(`/interview-session/${encodeURIComponent(token)}/complete`, { method: 'POST' }),
 

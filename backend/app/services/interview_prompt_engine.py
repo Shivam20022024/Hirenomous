@@ -93,7 +93,7 @@ def job_context(job: Optional[dict], fallback_jd: str = "") -> str:
     return "\n".join(parts)
 
 
-async def _chat_json(system: str, user: str, *, temperature: float = 0.3, timeout: float = 60.0) -> dict:
+async def _chat_json(system: str, user: str, *, temperature: float = 0.3, timeout: float = 60.0, max_tokens: Optional[int] = None) -> dict:
     """One JSON chat-completion call using the shared client + tolerant parsing."""
     headers = {
         "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
@@ -108,6 +108,8 @@ async def _chat_json(system: str, user: str, *, temperature: float = 0.3, timeou
         "temperature": temperature,
         "response_format": {"type": "json_object"},
     }
+    if max_tokens:
+        payload["max_tokens"] = max_tokens
     client = await ResumeService.get_client()
     resp = await client.post(
         f"{settings.OPENAI_API_BASE}/chat/completions",
@@ -304,7 +306,7 @@ Return STRICT JSON:
 }}
 """
     try:
-        data = await _chat_json(system, user, temperature=0.3, timeout=45.0)
+        data = await _chat_json(system, user, temperature=0.3, timeout=15.0, max_tokens=250)
         score = data.get("score")
         try:
             score = float(str(score).replace("%", "").strip())
