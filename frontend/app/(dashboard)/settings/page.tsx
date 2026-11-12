@@ -28,8 +28,71 @@ import { PageHeader } from '@/components/page-header';
 type TabKey = 'profile' | 'organization' | 'telephony' | 'email' | 'security';
 
 export default function SettingsPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState<TabKey>('profile');
+
+  // Profile state
+  const [profileName, setProfileName] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Organization state
+  const [orgName, setOrgName] = useState('');
+  const [orgSaving, setOrgSaving] = useState(false);
+  const [orgMessage, setOrgMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    if (user?.name) setProfileName(user.name);
+    if (user?.organization_name) setOrgName(user.organization_name);
+  }, [user]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profileName.trim()) {
+      setProfileMessage({ type: 'error', text: 'Name cannot be empty.' });
+      return;
+    }
+    setProfileSaving(true);
+    setProfileMessage(null);
+    try {
+      const res = await fetchApi('/api/auth/profile', {
+        method: 'PUT',
+        body: JSON.stringify({ name: profileName.trim() }),
+      });
+      if (res?.user) {
+        updateUser(res.user);
+      } else {
+        updateUser({ name: profileName.trim() });
+      }
+      setProfileMessage({ type: 'success', text: 'Profile name updated successfully!' });
+    } catch (err: any) {
+      setProfileMessage({ type: 'error', text: err.message || 'Failed to update profile.' });
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleSaveOrg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orgName.trim()) {
+      setOrgMessage({ type: 'error', text: 'Company name cannot be empty.' });
+      return;
+    }
+    setOrgSaving(true);
+    setOrgMessage(null);
+    try {
+      await fetchApi('/api/auth/organization', {
+        method: 'PUT',
+        body: JSON.stringify({ name: orgName.trim() }),
+      });
+      updateUser({ organization_name: orgName.trim() });
+      setOrgMessage({ type: 'success', text: 'Company name updated successfully!' });
+    } catch (err: any) {
+      setOrgMessage({ type: 'error', text: err.message || 'Failed to update organization.' });
+    } finally {
+      setOrgSaving(false);
+    }
+  };
 
   // Telephony state
   const [telephonyLoading, setTelephonyLoading] = useState(false);
@@ -280,15 +343,31 @@ export default function SettingsPage() {
             <div className="rounded-xl border border-border bg-card overflow-hidden">
               <div className="border-b border-border px-6 py-5 bg-muted/30">
                 <h2 className="text-lg font-bold">Profile Details</h2>
-                <p className="text-sm text-muted-foreground">Your personal account information.</p>
+                <p className="text-sm text-muted-foreground">Your personal account information and display name.</p>
               </div>
-              <div className="p-6 space-y-6">
+              <form onSubmit={handleSaveProfile} className="p-6 space-y-6">
+                {profileMessage && (
+                  <div
+                    className={`flex items-center gap-2 rounded-xl p-3.5 text-sm ${profileMessage.type === 'success'
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-destructive/15 text-destructive'
+                      }`}
+                  >
+                    {profileMessage.type === 'success' ? (
+                      <CheckCircle2 size={16} />
+                    ) : (
+                      <AlertCircle size={16} />
+                    )}
+                    <span>{profileMessage.text}</span>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-6">
                   <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-3xl font-bold text-primary">
-                    {user?.name?.charAt(0).toUpperCase() || 'U'}
+                    {(profileName || user?.name || 'U').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="font-bold text-foreground">{user?.name}</h3>
+                    <h3 className="font-bold text-foreground">{profileName || user?.name}</h3>
                     <p className="text-sm text-muted-foreground">{user?.email}</p>
                   </div>
                 </div>
@@ -298,11 +377,16 @@ export default function SettingsPage() {
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Full Name
                     </label>
-                    <input
-                      disabled
-                      value={user?.name || ''}
-                      className="mt-1.5 w-full rounded-xl border border-border bg-muted px-4 py-2.5 text-sm opacity-80"
-                    />
+                    <div className="relative mt-1.5">
+                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                      <input
+                        type="text"
+                        value={profileName}
+                        onChange={(e) => setProfileName(e.target.value)}
+                        placeholder="e.g. Shivam Kumar"
+                        className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -336,7 +420,18 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
-              </div>
+
+                <div className="flex justify-end pt-2 border-t border-border">
+                  <button
+                    type="submit"
+                    disabled={profileSaving}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    <Save size={16} />
+                    {profileSaving ? 'Saving...' : 'Save Profile'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
@@ -347,7 +442,23 @@ export default function SettingsPage() {
                 <h2 className="text-lg font-bold">Organization Details</h2>
                 <p className="text-sm text-muted-foreground">Information about your company workspace.</p>
               </div>
-              <div className="p-6 space-y-6">
+              <form onSubmit={handleSaveOrg} className="p-6 space-y-6">
+                {orgMessage && (
+                  <div
+                    className={`flex items-center gap-2 rounded-xl p-3.5 text-sm ${orgMessage.type === 'success'
+                      ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                      : 'bg-destructive/15 text-destructive'
+                      }`}
+                  >
+                    {orgMessage.type === 'success' ? (
+                      <CheckCircle2 size={16} />
+                    ) : (
+                      <AlertCircle size={16} />
+                    )}
+                    <span>{orgMessage.text}</span>
+                  </div>
+                )}
+
                 <div className="grid gap-6 sm:grid-cols-2">
                   <div>
                     <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -356,9 +467,11 @@ export default function SettingsPage() {
                     <div className="relative mt-1.5">
                       <Building className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
                       <input
-                        disabled
-                        value={user?.organization_name || 'My Organization'}
-                        className="w-full rounded-xl border border-border bg-muted pl-10 pr-4 py-2.5 text-sm opacity-80"
+                        type="text"
+                        value={orgName}
+                        onChange={(e) => setOrgName(e.target.value)}
+                        placeholder="Company name"
+                        className="w-full rounded-xl border border-border bg-background pl-10 pr-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
                       />
                     </div>
                   </div>
@@ -381,7 +494,18 @@ export default function SettingsPage() {
                     are strictly isolated to your company organization ID.
                   </p>
                 </div>
-              </div>
+
+                <div className="flex justify-end pt-2 border-t border-border">
+                  <button
+                    type="submit"
+                    disabled={orgSaving}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    <Save size={16} />
+                    {orgSaving ? 'Saving...' : 'Save Organization'}
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 

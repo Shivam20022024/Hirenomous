@@ -25,6 +25,7 @@ interface AuthContextType {
   logout: () => void;
   viewAsOrg: ViewAsOrg | null;
   setViewAsOrg: (org: ViewAsOrg | null) => void;
+  updateUser: (data: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -80,8 +81,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = '/login';
   };
 
+  const updateUser = (data: Partial<User>) => {
+    setUser((prev) => (prev ? { ...prev, ...data } : null));
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, viewAsOrg, setViewAsOrg }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, viewAsOrg, setViewAsOrg, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

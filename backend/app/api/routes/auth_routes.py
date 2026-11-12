@@ -278,6 +278,56 @@ async def read_users_me(current_user = Depends(get_current_active_user)):
     return user_dict
 
 
+class UpdateProfileRequest(BaseModel):
+    name: str
+
+
+class UpdateOrganizationRequest(BaseModel):
+    name: str
+
+
+@router.put("/profile")
+@router.patch("/profile")
+async def update_profile(req: UpdateProfileRequest, current_user: UserInDB = Depends(get_current_active_user)):
+    db = get_db()
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+
+    user_id = str(current_user.id)
+    await db["users"].update_one(
+        {"id": user_id},
+        {"$set": {"name": name, "updated_at": datetime.utcnow()}}
+    )
+    user = await db["users"].find_one({"id": user_id}) or await db["users"].find_one({"email": current_user.email})
+    org_name = None
+    if user and user.get("organization_id"):
+        org = await db["organizations"].find_one({"id": user["organization_id"]})
+        if org:
+            org_name = org.get("name")
+    user_resp = UserResponse(**user).dict()
+    user_resp["organization_name"] = org_name
+    return {"status": "success", "message": "Profile updated successfully", "user": user_resp}
+
+
+@router.put("/organization")
+@router.patch("/organization")
+async def update_organization_name(req: UpdateOrganizationRequest, current_user: UserInDB = Depends(get_current_active_user)):
+    db = get_db()
+    org_id = current_user.organization_id
+    if not org_id:
+        raise HTTPException(status_code=400, detail="No organization associated with this account")
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Company name cannot be empty")
+
+    await db["organizations"].update_one(
+        {"id": org_id},
+        {"$set": {"name": name, "updated_at": datetime.utcnow()}}
+    )
+    return {"status": "success", "message": "Organization updated successfully", "organization_name": name}
+
+
 # ---------------------------------------------------------------------------
 # Organization Telephony & Email Configuration Endpoints
 # ---------------------------------------------------------------------------
