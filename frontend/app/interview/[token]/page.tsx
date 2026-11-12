@@ -666,8 +666,7 @@ export default function CandidateVideoInterviewPage() {
       <div className="flex min-h-screen items-center justify-center bg-[#0b0e14] p-4 text-white">
         <form onSubmit={verifyEmail} className="w-full max-w-md rounded-3xl border border-white/10 bg-[#131720] p-8 shadow-2xl">
           <div className="flex items-center gap-2 mb-3">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 font-bold text-xs text-white">H</span>
-            <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-400">Haira AI Interview</span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-400">AI Video Interview</span>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-white">{session?.job_title}</h1>
           <p className="mt-2 text-sm text-white/70">
@@ -704,8 +703,7 @@ export default function CandidateVideoInterviewPage() {
         <div className="w-full max-w-3xl rounded-3xl border border-white/10 bg-[#131720] p-6 sm:p-8 shadow-2xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600 font-bold text-xs text-white">H</span>
-              <span className="text-xs font-bold uppercase tracking-[0.16em] text-blue-400">Haira AI · 1-on-1 Interview</span>
+              <span className="text-xs font-bold uppercase tracking-[0.16em] text-blue-400">1-on-1 AI Interview</span>
             </div>
             <span className="text-xs text-white/50">{session?.job_title}</span>
           </div>
@@ -805,7 +803,7 @@ export default function CandidateVideoInterviewPage() {
   }
 
   // ======================================================================
-  // 1-on-1 LIVE VIDEO INTERVIEW ROOM (HAIRA AI LAYOUT - HANDS-FREE)
+  // 1-on-1 LIVE VIDEO INTERVIEW ROOM (HANDS-FREE DIRECT ANSWERING)
   // ======================================================================
   const qNum = question?.question_number || 1;
   const qTotal = question?.total_questions || session?.total_questions || 1;
@@ -815,14 +813,10 @@ export default function CandidateVideoInterviewPage() {
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#0b0e14] text-white select-none overflow-hidden font-sans">
       
-      {/* 1. TOP HEADER: BRANDING & CALL TIMER */}
+      {/* 1. TOP HEADER: STATUS & CALL TIMER */}
       <header className="relative z-20 flex items-center justify-between px-6 pt-5 pb-2">
-        {/* Left Branding Badge */}
-        <div className="flex items-center gap-2.5 rounded-full bg-white/[0.08] backdrop-blur-xl border border-white/10 px-4 py-1.5 shadow-xl">
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 font-extrabold text-xs text-white shadow-inner">
-            H
-          </div>
-          <span className="font-semibold text-xs tracking-wide text-white">Haira AI</span>
+        {/* Left Status Badge: Live timer */}
+        <div className="flex items-center gap-2.5 rounded-full bg-white/[0.08] backdrop-blur-xl border border-white/10 px-3.5 py-1.5 shadow-xl">
           <div className="flex items-center gap-1.5 rounded-full bg-red-500/20 px-2 py-0.5 text-[10px] font-bold text-red-400 border border-red-500/30">
             <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" /> LIVE
           </div>
@@ -942,7 +936,7 @@ export default function CandidateVideoInterviewPage() {
         </div>
       </main>
 
-      {/* 3. FLOATING BOTTOM CONTROL DOCK (HAIRA AI STYLE - HANDS-FREE DIRECT ANSWERING) */}
+      {/* 3. FLOATING BOTTOM CONTROL DOCK (HANDS-FREE DIRECT ANSWERING) */}
       <footer className="relative z-30 pb-5 pt-2 flex flex-col items-center gap-2">
         {/* Error message banner */}
         {turnError && (
