@@ -99,8 +99,10 @@ export default function CandidateVideoInterviewPage() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const vadRafRef = useRef<number | null>(null);
   const hasSpokenRef = useRef(false);
-  const speechStartTimeRef = useRef<number | null>(null);
+  const speechDurationRef = useRef<number>(0);
   const silenceStartRef = useRef<number | null>(null);
+  const silenceSuppressedUntilRef = useRef<number>(0);
+  const recSecondsRef = useRef<number>(0);
   const isSubmittingTurnRef = useRef(false);
 
   // ---- integrity telemetry (accumulated per question, best-effort) ----
@@ -115,6 +117,10 @@ export default function CandidateVideoInterviewPage() {
   useEffect(() => {
     questionRef.current = question;
   }, [question]);
+
+  useEffect(() => {
+    recSecondsRef.current = recSeconds;
+  }, [recSeconds]);
 
   const resetSignals = useCallback(() => {
     focusLost.current = 0;
@@ -276,6 +282,14 @@ export default function CandidateVideoInterviewPage() {
   const stopAndSubmitRef = useRef<(() => Promise<void>) | null>(null);
   const beginRecordingRef = useRef<(() => void) | null>(null);
 
+  const cancelAutoSubmit = useCallback((e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    silenceStartRef.current = null;
+    setAutoSubmitCountdown(null);
+    // Give 8s of uninterrupted thinking time before next silence countdown
+    silenceSuppressedUntilRef.current = Date.now() + 8000;
+  }, []);
+
   // ---- VAD silence monitoring ----
   const startVadMonitoring = useCallback(() => {
     if (!streamRef.current) return;
@@ -298,20 +312,27 @@ export default function CandidateVideoInterviewPage() {
       const source = audioCtx.createMediaStreamSource(sourceStream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.4;
+      analyser.smoothingTimeConstant = 0.3;
       source.connect(analyser);
       analyserRef.current = analyser;
 
       const bufferLength = analyser.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
 
+      let noiseFloor = 18.0;
+      let consecutiveSilenceFrames = 0;
+      let consecutiveSpeechFrames = 0;
+      let lastTimestamp = Date.now();
+
       const checkAudio = () => {
         if (!analyserRef.current) return;
         analyserRef.current.getByteFrequencyData(dataArray);
 
-        // Vocal frequency bins: human voice is centered between ~350Hz and ~3500Hz
-        // In 256-point FFT at 48kHz, bin width is 187Hz. Bins 2 to 22 focus purely on human vocal energy.
-        // This filters out low-frequency ceiling fan hum, air noise, and desk vibrations.
+        const now = Date.now();
+        const deltaMs = Math.min(100, Math.max(1, now - lastTimestamp));
+        lastTimestamp = now;
+
+        // Bins 2 to 22 cover ~350Hz - 3800Hz (human voice fundamentals and harmonics)
         let vocalSum = 0;
         let vocalBins = 0;
         for (let i = 2; i <= 22 && i < bufferLength; i++) {
@@ -320,36 +341,74 @@ export default function CandidateVideoInterviewPage() {
         }
         const vocalEnergy = vocalBins > 0 ? vocalSum / vocalBins : 0;
 
-        // Realistic speech threshold for vocal band (speech is usually 35-90, room noise in vocal band is 5-22)
-        const isSpeaking = vocalEnergy > 30;
+        // Adaptive noise floor tracking: gracefully floats around background ambient room level
+        if (vocalEnergy < noiseFloor) {
+          noiseFloor = noiseFloor * 0.92 + vocalEnergy * 0.08;
+        } else {
+          noiseFloor = noiseFloor * 0.998 + vocalEnergy * 0.002;
+        }
+        noiseFloor = Math.max(8, Math.min(45, noiseFloor));
 
-        setIsCandidateSpeaking(isSpeaking);
+        // Dynamic threshold calibrated above noise floor, minimum 22
+        const threshold = Math.max(22, noiseFloor + 12);
+        const isVoice = vocalEnergy > threshold;
 
-        if (isSpeaking) {
-          hasSpokenRef.current = true;
-          if (speechStartTimeRef.current === null) speechStartTimeRef.current = Date.now();
+        if (isVoice) {
+          consecutiveSpeechFrames++;
+          consecutiveSilenceFrames = 0;
+
+          // ~80ms of vocal energy registers as candidate speech
+          if (consecutiveSpeechFrames >= 5) {
+            setIsCandidateSpeaking(true);
+            hasSpokenRef.current = true;
+            speechDurationRef.current += deltaMs;
+            silenceStartRef.current = null;
+            setAutoSubmitCountdown(null);
+          }
+        } else {
+          consecutiveSilenceFrames++;
+          consecutiveSpeechFrames = 0;
+
+          // ~160ms of silence transitions state to listening/pause
+          if (consecutiveSilenceFrames >= 10) {
+            setIsCandidateSpeaking(false);
+          }
+        }
+
+        // Option A Hybrid Logic:
+        // Only trigger auto-submit countdown if:
+        // 1. Not in temporary "Keep Speaking" suppression period
+        // 2. Candidate has spoken for at least 3.5s of voice or recording is >= 6s
+        const isSuppressed = now < silenceSuppressedUntilRef.current;
+        const hasSpokenEnough = hasSpokenRef.current && (speechDurationRef.current >= 3500 || recSecondsRef.current >= 6);
+
+        if (!isVoice && consecutiveSilenceFrames >= 12 && hasSpokenEnough && !isSuppressed) {
+          if (silenceStartRef.current === null) {
+            silenceStartRef.current = now;
+          }
+
+          const silentDuration = now - silenceStartRef.current;
+          const SILENCE_TRIGGER_MS = 3500; // 3.5s silence triggers countdown
+          const COUNTDOWN_TOTAL_MS = 3000; // 3s countdown (3, 2, 1)
+
+          if (silentDuration >= SILENCE_TRIGGER_MS) {
+            const countdownElapsed = silentDuration - SILENCE_TRIGGER_MS;
+            const remainingSec = Math.max(0, Math.ceil((COUNTDOWN_TOTAL_MS - countdownElapsed) / 1000));
+            setAutoSubmitCountdown(remainingSec);
+
+            if (countdownElapsed >= COUNTDOWN_TOTAL_MS && !isSubmittingTurnRef.current) {
+              stopVadMonitoring();
+              if (stopAndSubmitRef.current) {
+                stopAndSubmitRef.current();
+              }
+              return;
+            }
+          } else {
+            setAutoSubmitCountdown(null);
+          }
+        } else if (isVoice) {
           silenceStartRef.current = null;
           setAutoSubmitCountdown(null);
-        } else if (hasSpokenRef.current) {
-          const spokenDuration = speechStartTimeRef.current ? Date.now() - speechStartTimeRef.current : 0;
-          // After speaking for at least 1.5 seconds, silence triggers auto-submit
-          if (spokenDuration >= 1500) {
-            if (silenceStartRef.current === null) {
-              silenceStartRef.current = Date.now();
-            } else {
-              const silentMs = Date.now() - silenceStartRef.current;
-              const remaining = Math.max(0, Math.ceil((2500 - silentMs) / 1000));
-              setAutoSubmitCountdown(remaining);
-
-              if (silentMs >= 2500 && !isSubmittingTurnRef.current) {
-                stopVadMonitoring();
-                if (stopAndSubmitRef.current) {
-                  stopAndSubmitRef.current();
-                }
-                return;
-              }
-            }
-          }
         }
 
         vadRafRef.current = requestAnimationFrame(checkAudio);
@@ -371,8 +430,9 @@ export default function CandidateVideoInterviewPage() {
     aChunks.current = [];
     setRecSeconds(0);
     hasSpokenRef.current = false;
-    speechStartTimeRef.current = null;
+    speechDurationRef.current = 0;
     silenceStartRef.current = null;
+    silenceSuppressedUntilRef.current = 0;
     setAutoSubmitCountdown(null);
     setIsCandidateSpeaking(false);
 
@@ -873,15 +933,17 @@ export default function CandidateVideoInterviewPage() {
             {/* Real-time Voice Detection Activity Badge */}
             {recording && (
               <div className={`absolute top-4 left-4 flex items-center gap-2 rounded-full backdrop-blur-md px-3.5 py-1.5 text-xs font-bold text-white shadow-lg border transition-all ${
-                isCandidateSpeaking
+                autoSubmitCountdown != null
+                  ? 'bg-amber-600/90 border-amber-400/50 shadow-amber-600/30'
+                  : isCandidateSpeaking
                   ? 'bg-emerald-600/90 border-emerald-400/50 scale-105'
                   : 'bg-blue-600/80 border-blue-400/40'
               }`}>
-                <span className={`h-2 w-2 rounded-full bg-white ${isCandidateSpeaking ? 'animate-ping' : 'animate-pulse'}`} />
+                <span className={`h-2 w-2 rounded-full bg-white ${autoSubmitCountdown != null ? 'animate-ping' : (isCandidateSpeaking ? 'animate-ping' : 'animate-pulse')}`} />
                 <span>{isCandidateSpeaking ? 'SPEAKING' : 'LISTENING'} ({mmss})</span>
                 {autoSubmitCountdown != null && (
-                  <span className="ml-1 rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] font-mono font-medium">
-                    Submitting in {autoSubmitCountdown}s…
+                  <span className="ml-1 rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-mono font-bold text-amber-200">
+                    Auto-submitting in {autoSubmitCountdown}s
                   </span>
                 )}
               </div>
@@ -990,22 +1052,34 @@ export default function CandidateVideoInterviewPage() {
               <span>Submitting answer & preparing next question…</span>
             </div>
           ) : recording ? (
-            <button
-              onClick={stopAndSubmit}
-              className={`flex items-center gap-2 rounded-full text-white px-5 py-2.5 text-xs font-bold transition shadow-lg ${
-                autoSubmitCountdown != null
-                  ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/40 animate-pulse'
-                  : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/40'
-              }`}
-              title="Click when you are done speaking to immediately move to the next question"
-            >
-              <Square size={13} className="fill-white" />
-              <span>
-                {autoSubmitCountdown != null
-                  ? `Submitting in ${autoSubmitCountdown}s · Click to Submit Now`
-                  : `Finish Answer & Next → (${mmss})`}
-              </span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={stopAndSubmit}
+                className={`flex items-center gap-2 rounded-full text-white px-5 py-2.5 text-xs font-bold transition shadow-lg ${
+                  autoSubmitCountdown != null
+                    ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/40 border border-amber-400/40 animate-pulse'
+                    : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/40 border border-emerald-400/20'
+                }`}
+                title="Click when done speaking to immediately move to the next question"
+              >
+                <Square size={13} className="fill-white" />
+                <span>
+                  {autoSubmitCountdown != null
+                    ? `Silence detected · Submitting in ${autoSubmitCountdown}s (Click to Submit)`
+                    : `Finish Answer & Next → (${mmss})`}
+                </span>
+              </button>
+
+              {autoSubmitCountdown != null && (
+                <button
+                  onClick={cancelAutoSubmit}
+                  className="flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/20 text-white/90 border border-white/20 px-3 py-2 text-xs font-semibold transition"
+                  title="Pause auto-submit and continue answering"
+                >
+                  <span>Keep Speaking</span>
+                </button>
+              )}
+            </div>
           ) : (
             <button
               onClick={beginRecording}
