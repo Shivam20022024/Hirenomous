@@ -47,22 +47,22 @@ async def billing_status(user: UserInDB = Depends(get_current_active_user)):
 # ---------------------------------------------------------------------------
 
 @router.get("/wallet")
-async def get_wallet_dashboard(user: UserInDB = Depends(get_current_active_user)):
+async def get_wallet_dashboard(
+    user: UserInDB = Depends(get_current_active_user),
+    org_id: str = Depends(get_context_organization_id)
+):
     db = get_db()
-    org_id = user.organization_id
-    if not org_id and user.role == "SUPER_ADMIN":
-        # Super admin fallback
-        org = await db.organizations.find_one({})
-        org_id = org["id"] if org else "platform"
-    elif not org_id:
-        raise HTTPException(status_code=400, detail="No organization associated with this account")
     return await billing_service.get_dashboard_data(db, org_id)
 
 
 @router.get("/transactions")
-async def get_transactions(limit: int = 50, skip: int = 0, user: UserInDB = Depends(get_current_active_user)):
+async def get_transactions(
+    limit: int = 50,
+    skip: int = 0,
+    user: UserInDB = Depends(get_current_active_user),
+    org_id: str = Depends(get_context_organization_id)
+):
     db = get_db()
-    org_id = user.organization_id or ""
     cursor = db.transactions.find(
         {"$or": [{"organization_id": org_id}, {"company_id": org_id}]}
     ).sort("created_at", -1).skip(skip).limit(limit)
@@ -74,9 +74,13 @@ async def get_transactions(limit: int = 50, skip: int = 0, user: UserInDB = Depe
 
 
 @router.get("/usage")
-async def get_usage(limit: int = 50, skip: int = 0, user: UserInDB = Depends(get_current_active_user)):
+async def get_usage(
+    limit: int = 50,
+    skip: int = 0,
+    user: UserInDB = Depends(get_current_active_user),
+    org_id: str = Depends(get_context_organization_id)
+):
     db = get_db()
-    org_id = user.organization_id or ""
     cursor = db.usage_records.find(
         {"$or": [{"organization_id": org_id}, {"company_id": org_id}]}
     ).sort("created_at", -1).skip(skip).limit(limit)

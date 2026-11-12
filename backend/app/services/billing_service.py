@@ -57,6 +57,11 @@ def compute_access(org: Optional[dict]) -> Dict[str, Any]:
         return {"access": False, "status": "expired", "trial_ends_at": None,
                 "paid_until": None, "days_left": 0}
 
+    # Internal / Demo / Unlimited orgs have perpetual active access
+    if org.get("plan_type") == "unlimited" or org.get("unlimited_calls") is True or org.get("is_demo") is True:
+        return {"access": True, "status": "unlimited", "trial_ends_at": None,
+                "paid_until": None, "days_left": None}
+
     trial_ends_at = org.get("trial_ends_at")
     paid_until = org.get("paid_until")
 
@@ -325,7 +330,7 @@ async def get_trial_seconds_used(db, org_id: str) -> float:
 
 async def check_call_allowance(db, org_id: str) -> dict:
     org = await db.organizations.find_one({"id": org_id})
-    if org and org.get("plan_type") == "unlimited":
+    if org and (org.get("plan_type") == "unlimited" or org.get("unlimited_calls") is True or org.get("is_demo") is True):
         return {"allowed": True, "reason": "unlimited_plan"}
 
     is_trial = not org or org.get("plan_type") == "trial" or not org.get("paid_until")
@@ -365,10 +370,17 @@ async def process_call_billing(db, call_id: str, org_id: str, direction: str, du
         billable_seconds = duration_seconds
 
         org = await db.organizations.find_one({"id": org_id})
-        is_unlimited = bool(org) and org.get("plan_type") == "unlimited"
-        is_trial = not org or org.get("plan_type") == "trial" or not org.get("paid_until")
+        is_unlimited = bool(org) and (
+            org.get("plan_type") == "unlimited" or
+            org.get("unlimited_calls") is True or
+            org.get("is_demo") is True
+        )
+        is_trial = not is_unlimited and (not org or org.get("plan_type") == "trial" or not org.get("paid_until"))
         
-        if is_trial:
+        if is_unlimited:
+            free_seconds_applied = duration_seconds
+            billable_seconds = 0.0
+        elif is_trial:
             used_so_far = await get_trial_seconds_used(db, org_id)
             free_remaining = max(0.0, TRIAL_FREE_SECONDS - used_so_far)
             free_seconds_applied = min(duration_seconds, free_remaining)
@@ -420,17 +432,21 @@ async def process_call_billing(db, call_id: str, org_id: str, direction: str, du
 async def get_dashboard_data(db, org_id: str):
     wallet = await get_or_create_wallet(db, org_id)
     org = await db.organizations.find_one({"id": org_id})
-    is_unlimited = bool(org) and org.get("plan_type") == "unlimited"
-    is_trial = not org or org.get("plan_type") == "trial" or not org.get("paid_until")
+    is_unlimited = bool(org) and (
+        org.get("plan_type") == "unlimited" or
+        org.get("unlimited_calls") is True or
+        org.get("is_demo") is True
+    )
+    is_trial = not is_unlimited and (not org or org.get("plan_type") == "trial" or not org.get("paid_until"))
     
     if is_unlimited:
-        plan_name = "Enterprise Unlimited"
+        plan_name = "Enterprise Unlimited (Company Demo)"
     elif is_trial:
         plan_name = "Trial (10 Min Included)"
     else:
         plan_name = "Pay-As-You-Go"
 
-    included_minutes = TRIAL_FREE_SECONDS / 60.0 if is_trial else 0
+    included_minutes = 999999 if is_unlimited else (TRIAL_FREE_SECONDS / 60.0 if is_trial else 0)
 
     pipeline = [
         {"$match": {"$or": [{"organization_id": org_id}, {"company_id": org_id}]}},
@@ -458,18 +474,19 @@ async def get_dashboard_data(db, org_id: str):
         "$or": [{"organization_id": org_id}, {"company_id": org_id}],
         "status": {"$in": ["completed", "Completed", "analyzed", "Analyzed"]}
     })
-    minutes_remaining = max(0.0, round(included_minutes - minutes_used, 1)) if included_minutes > 0 else 0.0
+    minutes_remaining = 999999 if is_unlimited else (max(0.0, round(included_minutes - minutes_used, 1)) if included_minutes > 0 else 0.0)
 
     return {
         "balance": round(wallet.get("balance", 0.0), 2),
         "currency": wallet.get("currency", "INR"),
         "plan_name": plan_name,
         "is_trial": is_trial,
+        "is_unlimited": is_unlimited,
         "minutes_used": minutes_used,
         "minutes_included": included_minutes,
         "minutes_remaining": minutes_remaining,
-        "trial_free_seconds": TRIAL_FREE_SECONDS if is_trial else 0,
-        "trial_remaining_seconds": int(minutes_remaining * 60) if is_trial else 0,
+        "trial_free_seconds": 0 if is_unlimited else (TRIAL_FREE_SECONDS if is_trial else 0),
+        "trial_remaining_seconds": 0 if is_unlimited else (int(minutes_remaining * 60) if is_trial else 0),
         "total_spending": total_spending,
         "breakdown": {
             k: {"minutes": round(v["seconds"] / 60.0, 1), "spending": round(v["cost"], 2)}
@@ -477,7 +494,7 @@ async def get_dashboard_data(db, org_id: str):
         },
         "total_calls": total_calls,
         "completed_calls": completed_calls,
-        "rate_per_minute": 12.0,
+        "rate_per_minute": 0.0 if is_unlimited else 12.0,
         "organization_name": (org or {}).get("name") or "Company",
         "company_name": (org or {}).get("name") or "Company",
     }

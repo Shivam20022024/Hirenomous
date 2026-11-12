@@ -438,6 +438,11 @@ async def dispatch_single_plivo_call(
     if not phone_number:
         return {"status": "error", "message": "Missing phone number"}
 
+    # Check call allowance (unlimited demo accounts, trial allowance, or wallet balance)
+    allowance = await billing_service.check_call_allowance(db, org_id)
+    if not allowance.get("allowed"):
+        return {"status": "error", "message": allowance.get("reason", "Calling limit reached. Please recharge.")}
+
     call_id = f"plivo-{candidate_id}-{int(time.time())}"
     now = datetime.utcnow()
 

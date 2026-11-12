@@ -26,6 +26,7 @@ interface DashboardData {
   currency: string;
   plan_name: string;
   is_trial: boolean;
+  is_unlimited?: boolean;
   minutes_used: number;
   minutes_included: number;
   minutes_remaining: number;
@@ -224,8 +225,10 @@ export default function BillingPage() {
                 ₹{(dashboard?.balance ?? 0).toFixed(2)}
               </p>
               <div className="mt-2 flex items-center gap-2">
-                <Badge variant={dashboard?.is_trial && (dashboard?.minutes_remaining ?? 0) > 0 ? 'success' : (dashboard?.balance && dashboard.balance > 50 ? 'success' : 'warning')}>
-                  {dashboard?.is_trial && (dashboard?.minutes_remaining ?? 0) > 0
+                <Badge variant={dashboard?.is_unlimited || dashboard?.plan_name?.includes('Unlimited') ? 'success' : (dashboard?.is_trial && (dashboard?.minutes_remaining ?? 0) > 0 ? 'success' : (dashboard?.balance && dashboard.balance > 50 ? 'success' : 'warning'))}>
+                  {dashboard?.is_unlimited || dashboard?.plan_name?.includes('Unlimited')
+                    ? 'Unlimited Calling Active'
+                    : dashboard?.is_trial && (dashboard?.minutes_remaining ?? 0) > 0
                     ? `${dashboard.minutes_remaining}m Trial Active`
                     : (dashboard?.balance && dashboard.balance > 0 ? 'Active Credits' : 'Low Balance')}
                 </Badge>
@@ -245,7 +248,9 @@ export default function BillingPage() {
                 {dashboard?.minutes_used ?? 0} <span className="text-sm font-normal text-muted-foreground">min</span>
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                {dashboard?.is_trial
+                {dashboard?.is_unlimited || dashboard?.plan_name?.includes('Unlimited')
+                  ? 'Unlimited demo & internal calls'
+                  : dashboard?.is_trial
                   ? `${dashboard?.minutes_remaining ?? 10}m trial calling left`
                   : `${dashboard?.total_calls ?? 0} total interview calls made`}
               </p>
@@ -276,11 +281,11 @@ export default function BillingPage() {
                 </div>
               </div>
               <p className="mt-3 text-3xl font-bold tracking-tight text-foreground">
-                ₹12.00 <span className="text-sm font-normal text-muted-foreground">/ min</span>
+                {dashboard?.is_unlimited || dashboard?.plan_name?.includes('Unlimited') ? '₹0.00' : '₹12.00'} <span className="text-sm font-normal text-muted-foreground">/ min</span>
               </p>
               <p className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                AI Voice Screening Engine
+                {dashboard?.is_unlimited || dashboard?.plan_name?.includes('Unlimited') ? 'Unlimited Demo Engine' : 'AI Voice Screening Engine'}
               </p>
             </div>
           </div>
