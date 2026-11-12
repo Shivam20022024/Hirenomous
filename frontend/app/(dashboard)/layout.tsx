@@ -84,7 +84,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className={`flex h-20 items-center border-b border-sidebar-border ${collapsed ? 'lg:justify-center lg:px-2' : 'justify-between px-6'}`}>
           <div className="flex items-center gap-3">
             <BrandLogo className="h-9 w-9 shrink-0" />
-            <span className={`text-lg font-bold tracking-tight text-sidebar-foreground ${collapsed ? 'lg:hidden' : ''}`}>Hireonomous</span>
+            <span className={`text-lg font-bold tracking-tight text-sidebar-foreground ${collapsed ? 'lg:hidden' : ''}`}>HirePilot</span>
           </div>
           <button onClick={() => setMenuOpen(false)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden" aria-label="Close navigation">
             <X size={18}/>

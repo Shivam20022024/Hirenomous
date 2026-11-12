@@ -63,7 +63,7 @@ class BillingGateMiddleware(BaseHTTPMiddleware):
                 status_code=402,
                 content={
                     "detail": "billing_required",
-                    "message": "Your free trial has ended. Recharge to keep using Hireonomous.",
+                    "message": "Your free trial has ended. Recharge to keep using HirePilot.",
                     "status": access["status"],
                 },
             )

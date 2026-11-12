@@ -46,7 +46,7 @@ INTEREST_RULES = """
 - Uncertainty (e.g., "I'm not sure", "Can you tell me more?") -> Continue the conversation and provide details.
 """
 
-PROMPT_TEMPLATE_V1 = """You are Hireonomous AI Recruiter.
+PROMPT_TEMPLATE_V1 = """You are HirePilot AI Recruiter.
 You are calling a candidate regarding the {job_title} opportunity at {company_name}.
 Your goal is to conduct a short, professional screening conversation.
 

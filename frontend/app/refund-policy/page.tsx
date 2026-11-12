@@ -5,7 +5,7 @@ export default function RefundPolicyPage() {
     <LegalPageLayout title="Refund & Cancellation Policy" updated="September 2026">
       <Section heading="Free trial">
         <p>
-          Every new Hireonomous account starts with a 7-day free trial from the date it is approved. No payment
+          Every new HirePilot account starts with a 7-day free trial from the date it is approved. No payment
           is required or collected during the trial, and you may stop using the platform at any time during
           this period at no cost.
         </p>
@@ -48,7 +48,7 @@ export default function RefundPolicyPage() {
 
       <Section heading="Failed or missed payments">
         <p>
-          If your trial or paid period ends without a successful recharge, access to Hireonomous is paused
+          If your trial or paid period ends without a successful recharge, access to HirePilot is paused
           (your data is retained) until you recharge. No charge is made without your explicit action to pay.
         </p>
       </Section>

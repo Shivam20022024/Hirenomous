@@ -238,7 +238,7 @@ export default function RootPage() {
         <header className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2.5">
             <BrandLogo className="h-8 w-8 shrink-0" />
-            <span className="text-base font-bold tracking-tight text-primary-foreground">Hireonomous</span>
+            <span className="text-base font-bold tracking-tight text-primary-foreground">HirePilot</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href={user ? '/dashboard' : '/login'} className="text-sm font-semibold text-primary-foreground/90 hover:text-primary-foreground">
@@ -262,7 +262,7 @@ export default function RootPage() {
             </Reveal>
             <Reveal delay={100}>
               <p className="mt-5 text-base leading-relaxed text-primary-foreground/85 sm:text-lg">
-                Hireonomous screens resumes, runs AI voice and video interviews, and scores every candidate the same way, so your team spends time on decisions, not data entry.
+                HirePilot screens resumes, runs AI voice and video interviews, and scores every candidate the same way, so your team spends time on decisions, not data entry.
               </p>
             </Reveal>
             <Reveal delay={200}>
@@ -336,7 +336,7 @@ export default function RootPage() {
       {/* Reasons grid */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <Reveal className="mx-auto mb-14 max-w-xl text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">More reasons teams choose Hireonomous</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">More reasons teams choose HirePilot</h2>
         </Reveal>
         <div className="grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
           {REASONS.map((r, i) => (
@@ -408,9 +408,9 @@ export default function RootPage() {
             </div>
           </div>
           <div className="flex flex-col items-center gap-2 pt-8 text-center">
-            <span className="text-sm font-bold text-ink-foreground">Hireonomous</span>
+            <span className="text-sm font-bold text-ink-foreground">HirePilot</span>
             <p className="text-[11px] font-semibold uppercase tracking-widest">
-              © {new Date().getFullYear()} Hireonomous. A product by Novalantis.
+              © {new Date().getFullYear()} HirePilot. A product by Novalantis.
             </p>
           </div>
         </div>

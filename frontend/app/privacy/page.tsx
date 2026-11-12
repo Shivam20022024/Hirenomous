@@ -4,7 +4,7 @@ export default function PrivacyPage() {
   return (
     <LegalPageLayout title="Privacy Policy" updated="September 2026">
       <p className="text-muted-foreground">
-        This Privacy Policy explains what information Hireonomous (operated by Novalantis) collects, how it is
+        This Privacy Policy explains what information HirePilot (operated by Novalantis) collects, how it is
         used, and how it is protected — for both Customer (hiring company) users and the candidates they
         process through the platform.
       </p>
@@ -63,7 +63,7 @@ export default function PrivacyPage() {
 
       <Section heading="6. Candidate rights">
         <p>
-          If you are a candidate who was interviewed through Hireonomous and want to know what data was
+          If you are a candidate who was interviewed through HirePilot and want to know what data was
           collected about you or request its deletion, please contact the hiring company directly, or reach us
           at the email below and we will route your request appropriately.
         </p>
@@ -77,7 +77,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section heading="8. Children's privacy">
-        <p>Hireonomous is a business hiring tool and is not directed at, or knowingly used by, children.</p>
+        <p>HirePilot is a business hiring tool and is not directed at, or knowingly used by, children.</p>
       </Section>
 
       <Section heading="9. Changes to this policy">

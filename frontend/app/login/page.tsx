@@ -51,7 +51,7 @@ export default function LoginPage() {
         <div className="text-center">
           <BrandLogo className="mx-auto h-12 w-12" />
           <h2 className="mt-6 text-3xl font-bold tracking-tight text-foreground">
-            Sign in to Hireonomous
+            Sign in to HirePilot
           </h2>
           <p className="mt-2 text-base font-semibold text-foreground">
             Enter your details below to access your account

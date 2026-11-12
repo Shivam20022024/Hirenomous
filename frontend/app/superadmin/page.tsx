@@ -40,7 +40,7 @@ export default function SuperAdminOverview() {
 
   return (
     <div className="space-y-8">
-      <PageHeader eyebrow="Platform" title="Overview" description="Everything across every company on Hireonomous." />
+      <PageHeader eyebrow="Platform" title="Overview" description="Everything across every company on HirePilot." />
 
       {s.pending_requests > 0 && (
         <Link

@@ -50,7 +50,7 @@ export default function RequestAccessPage() {
           <BrandLogo className="mx-auto h-12 w-12" />
           <h1 className="mt-6 text-2xl font-bold tracking-tight text-foreground">Company Access</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Get your company started on Hirenomous with instant AI voice screening.
+            Get your company started on HirePilot with instant AI voice screening.
           </p>
         </div>
 

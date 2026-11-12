@@ -103,7 +103,7 @@ export default function SuperAdminCompanies() {
       <PageHeader
         eyebrow="Platform"
         title="Companies"
-        description="Every company on Hireonomous. Access accounts with 1-click Single Sign-In, monitor call usage, and manage billing."
+        description="Every company on HirePilot. Access accounts with 1-click Single Sign-In, monitor call usage, and manage billing."
       />
 
       {loading ? (

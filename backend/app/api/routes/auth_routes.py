@@ -135,7 +135,7 @@ async def register_company(request: RegisterCompanyRequest):
         "access_token": access_token,
         "token_type": "bearer",
         "user": user_resp,
-        "message": "Welcome to Hireonomous! Your workspace is ready with 10 free interview minutes."
+        "message": "Welcome to HirePilot! Your workspace is ready with 10 free interview minutes."
     }
 
 @router.post("/login")

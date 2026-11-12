@@ -449,7 +449,7 @@ export default function SettingsPage() {
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Zero setup. Outbound AI calls use the verified Hirenomous line (
+                          Zero setup. Outbound AI calls use the verified HirePilot line (
                           <span className="font-mono font-medium">{telephonyForm.shared_phone_number}</span>).
                         </p>
                       </div>

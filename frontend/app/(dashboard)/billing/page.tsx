@@ -137,7 +137,7 @@ export default function BillingPage() {
         key: order.key_id,
         amount: order.amount,
         currency: order.currency || 'INR',
-        name: 'Hireonomous AI',
+        name: 'HirePilot AI',
         description: `Wallet Top-Up (₹${finalAmount})`,
         order_id: order.order_id,
         handler: async (response: any) => {

@@ -5,7 +5,7 @@ export default function ContactPage() {
   return (
     <LegalPageLayout title="Contact Us">
       <p className="text-muted-foreground">
-        Hireonomous is built and operated by Novalantis. We&rsquo;re happy to help with account access,
+        HirePilot is built and operated by Novalantis. We&rsquo;re happy to help with account access,
         billing questions, or anything else about the product.
       </p>
 

@@ -37,7 +37,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         <div className="flex h-20 items-center gap-3 border-b border-sidebar-border px-6">
           <div className="brand-mark !h-9 !w-9 shrink-0 text-lg">H</div>
           <div>
-            <p className="text-sm font-bold tracking-tight text-sidebar-foreground">Hireonomous</p>
+            <p className="text-sm font-bold tracking-tight text-sidebar-foreground">HirePilot</p>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Super Admin</p>
           </div>
         </div>
