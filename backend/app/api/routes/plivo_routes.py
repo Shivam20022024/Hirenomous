@@ -79,7 +79,30 @@ async def resolve_call_voice_context(db, call_id: str, company_id: str = None) -
     company_name = (org.get("name") if org else "") or settings.APP_NAME
     
     candidate_name = (candidate.get("name") if candidate else "") or (call_doc.get("candidate_name") if call_doc else "") or "there"
-    job_title = (candidate.get("role") if candidate else "") or (call_doc.get("job_title") if call_doc else "") or "open position"
+
+    # Prioritize the actual job title from jobs_board (via candidate.job_id or call_doc.job_id)
+    job_title = None
+    target_job_id = (candidate.get("job_id") if candidate else None) or (call_doc.get("job_id") if call_doc else None)
+    if db is not None and target_job_id:
+        job_doc = await db.jobs_board.find_one({"id": target_job_id})
+        if not job_doc:
+            job_doc = await db.jobs.find_one({"id": target_job_id})
+        if job_doc and job_doc.get("title"):
+            job_title = job_doc.get("title").strip()
+
+    if not job_title and call_doc and call_doc.get("job_title"):
+        val = str(call_doc.get("job_title")).strip()
+        if val.lower() not in ["candidate", "open position", "unassigned", ""]:
+            job_title = val
+
+    if not job_title and candidate and candidate.get("job_role"):
+        val = str(candidate.get("job_role")).strip()
+        if val.lower() not in ["candidate", "open position", "unassigned", ""]:
+            job_title = val
+
+    if not job_title:
+        job_title = (candidate.get("role") if candidate else "") or "open position"
+    job_title = str(job_title).strip()
     
     welcome_text = f"Hi {candidate_name}, this is the recruitment team from {company_name} calling regarding your application for the {job_title} role. Is this a good time for a quick 2-minute chat?"
     
@@ -259,7 +282,29 @@ async def finalize_plivo_call(call_id: str, company_id: str = None, transcript_p
     # Candidate resolution & post-call evaluation
     cand_id = (call_doc.get("candidate_id") if call_doc else None) or call_id
     candidate = await db.candidates.find_one({"$or": [{"id": cand_id}, {"call_id": call_id}, {"bolna_call_id": call_id}]})
-    cand_role = (candidate.get("role") if candidate else None) or (call_doc.get("job_title") if call_doc else "Candidate")
+    
+    cand_role = None
+    target_job_id = (candidate.get("job_id") if candidate else None) or (call_doc.get("job_id") if call_doc else None)
+    if db is not None and target_job_id:
+        job_doc = await db.jobs_board.find_one({"id": target_job_id})
+        if not job_doc:
+            job_doc = await db.jobs.find_one({"id": target_job_id})
+        if job_doc and job_doc.get("title"):
+            cand_role = job_doc.get("title").strip()
+
+    if not cand_role and call_doc and call_doc.get("job_title"):
+        val = str(call_doc.get("job_title")).strip()
+        if val.lower() not in ["candidate", "open position", "unassigned", ""]:
+            cand_role = val
+
+    if not cand_role and candidate and candidate.get("job_role"):
+        val = str(candidate.get("job_role")).strip()
+        if val.lower() not in ["candidate", "open position", "unassigned", ""]:
+            cand_role = val
+
+    if not cand_role:
+        cand_role = (candidate.get("role") if candidate else None) or "Candidate"
+    cand_role = str(cand_role).strip()
     
     metrics = await extract_call_metrics(full_transcript, candidate_role=cand_role)
     
@@ -446,6 +491,24 @@ async def dispatch_single_plivo_call(
     call_id = f"plivo-{candidate_id}-{int(time.time())}"
     now = datetime.utcnow()
 
+    # Resolve job title from jobs_board (prioritize assigned job title over resume role)
+    target_job_title = None
+    target_job_id = candidate.get("job_id")
+    if db is not None and target_job_id:
+        job_doc = await db.jobs_board.find_one({"id": target_job_id})
+        if not job_doc:
+            job_doc = await db.jobs.find_one({"id": target_job_id})
+        if job_doc and job_doc.get("title"):
+            target_job_title = job_doc.get("title").strip()
+
+    if not target_job_title and candidate.get("job_role"):
+        val = str(candidate.get("job_role")).strip()
+        if val.lower() not in ["candidate", "open position", "unassigned", ""]:
+            target_job_title = val
+
+    if not target_job_title:
+        target_job_title = (candidate.get("role") or "Candidate").strip()
+
     # Pre-register call record
     await db.calls.insert_one({
         "call_id": call_id,
@@ -453,7 +516,8 @@ async def dispatch_single_plivo_call(
         "organization_id": org_id,
         "candidate_name": candidate.get("name"),
         "customer_id": phone_number,
-        "job_title": candidate.get("role", "Candidate"),
+        "job_id": target_job_id,
+        "job_title": target_job_title,
         "status": "calling",
         "provider": "plivo",
         "direction": "outbound",
@@ -483,7 +547,7 @@ async def dispatch_single_plivo_call(
                 "call_started_at": now,
                 "startedAt": now.isoformat(),
                 "last_interaction": now,
-                "job_role": candidate.get("role") or "Candidate"
+                "job_role": target_job_title
             }}
         )
 
@@ -528,9 +592,21 @@ async def dispatch_bulk_plivo_calls(
     called_phones = {}
     results_by_job = {}
 
+    # Pre-fetch jobs for all candidates to avoid redundant DB queries
+    job_ids = list({c.get("job_id") for c in candidates if c.get("job_id")})
+    job_map = {}
+    if db is not None and job_ids:
+        async for j in db.jobs_board.find({"id": {"$in": job_ids}}):
+            job_map[j["id"]] = j.get("title", "").strip()
+        missing = [jid for jid in job_ids if jid not in job_map]
+        if missing:
+            async for j in db.jobs.find({"id": {"$in": missing}}):
+                job_map[j["id"]] = j.get("title", "").strip()
+
     for candidate in candidates:
         job_id = candidate.get("job_id", "unknown")
-        job_title = candidate.get("role", "Candidate")
+        job_title = (job_map.get(job_id) if job_id in job_map else None) or candidate.get("job_role") or candidate.get("role") or "Candidate"
+        job_title = str(job_title).strip()
 
         if job_id not in results_by_job:
             results_by_job[job_id] = {

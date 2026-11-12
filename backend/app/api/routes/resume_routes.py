@@ -176,6 +176,20 @@ async def _process_resume_file(
         else:
             status = "shortlisted" if score >= settings.SHORTLIST_THRESHOLD else "rejected"
 
+    # Resolve assigned job title if job_id is present
+    assigned_job_role = None
+    if job_id and db is not None:
+        try:
+            job_obj = await db.jobs_board.find_one({"id": job_id})
+            if not job_obj:
+                job_obj = await db.jobs.find_one({"id": job_id})
+            if job_obj and job_obj.get("title"):
+                assigned_job_role = job_obj.get("title").strip()
+        except Exception:
+            pass
+    if not assigned_job_role:
+        assigned_job_role = result.get("role")
+
     candidate_data = {
         "id": str(uuid.uuid4()),
         "name": candidate_name,
@@ -190,6 +204,7 @@ async def _process_resume_file(
         "status": status,
         "shortlisted": status == "shortlisted",
         "role": result.get("role"),
+        "job_role": assigned_job_role,
         "total_experience": result.get("total_experience", "Not Available"),
         "ai_summary": result.get("reason"),
         "organization_id": org_id,
@@ -518,6 +533,18 @@ async def add_manual_candidate(candidate: ManualCandidate, org_id: str = Depends
     request_id = str(uuid.uuid4())[:8]
     logger.info(f"[{request_id}] Starting manual candidate entry for: {candidate.name}")
 
+    db = get_db()
+    assigned_role = candidate.role
+    if candidate.job_id and db is not None:
+        try:
+            job_obj = await db.jobs_board.find_one({"id": candidate.job_id})
+            if not job_obj:
+                job_obj = await db.jobs.find_one({"id": candidate.job_id})
+            if job_obj and job_obj.get("title"):
+                assigned_role = job_obj.get("title").strip()
+        except Exception:
+            pass
+
     candidate_data = {
         "id": str(uuid.uuid4()),
         "name": candidate.name,
@@ -532,6 +559,7 @@ async def add_manual_candidate(candidate: ManualCandidate, org_id: str = Depends
         "status": "shortlisted",
         "shortlisted": True,
         "role": candidate.role,
+        "job_role": assigned_role or candidate.role,
         "ai_summary": "Manually added candidate without AI parsing.",
         "organization_id": org_id,
         "job_id": candidate.job_id,
@@ -539,7 +567,6 @@ async def add_manual_candidate(candidate: ManualCandidate, org_id: str = Depends
     }
 
     try:
-        db = get_db()
         logger.info(f"[{request_id}] DB update started for {candidate.name}...")
         await db.candidates.insert_one(candidate_data)
         logger.info(f"[{request_id}] DB updated successfully.")

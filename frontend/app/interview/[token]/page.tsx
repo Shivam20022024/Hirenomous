@@ -221,13 +221,13 @@ export default function CandidateVideoInterviewPage() {
 
   const stopStream = useCallback(() => {
     stopVadMonitoring();
-    try { if (vRecRef.current?.state === 'recording') vRecRef.current.stop(); } catch {}
-    try { if (aRecRef.current?.state === 'recording') aRecRef.current.stop(); } catch {}
+    try { if (vRecRef.current?.state === 'recording') vRecRef.current.stop(); } catch { }
+    try { if (aRecRef.current?.state === 'recording') aRecRef.current.stop(); } catch { }
     if (timerRef.current) clearInterval(timerRef.current);
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-      try { audioCtxRef.current.close(); } catch {}
+      try { audioCtxRef.current.close(); } catch { }
     }
   }, [stopVadMonitoring]);
 
@@ -253,7 +253,7 @@ export default function CandidateVideoInterviewPage() {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         setSpeakerOk(devices.some((d) => d.kind === 'audiooutput'));
-      } catch {}
+      } catch { }
       setMedia('granted');
       return true;
     } catch (e: any) {
@@ -280,7 +280,7 @@ export default function CandidateVideoInterviewPage() {
   useEffect(() => {
     if (videoElRef.current && streamRef.current && media === 'granted') {
       videoElRef.current.srcObject = streamRef.current;
-      videoElRef.current.play().catch(() => {});
+      videoElRef.current.play().catch(() => { });
     }
   }, [media, phase]);
 
@@ -476,16 +476,16 @@ export default function CandidateVideoInterviewPage() {
             }
             liveTranscriptRef.current = trans.trim();
           };
-          rec.onerror = () => {};
+          rec.onerror = () => { };
           rec.onend = () => {
             // Auto re-arm if the candidate is still actively recording
             if (liveSpeechRef.current) {
-              try { rec.start(); } catch {}
+              try { rec.start(); } catch { }
             }
           };
           rec.start();
           liveSpeechRef.current = rec;
-        } catch {}
+        } catch { }
       }
 
       vRec.start();
@@ -507,13 +507,13 @@ export default function CandidateVideoInterviewPage() {
   const playQuestionAudio = useCallback(async (q: QuestionPayload) => {
     stopVadMonitoring();
     if (liveSpeechRef.current) {
-      try { liveSpeechRef.current.stop(); } catch {}
+      try { liveSpeechRef.current.stop(); } catch { }
       liveSpeechRef.current = null;
     }
     try {
       if (vRecRef.current?.state === 'recording') vRecRef.current.stop();
       if (aRecRef.current?.state === 'recording') aRecRef.current.stop();
-    } catch {}
+    } catch { }
     setRecording(false);
 
     if (!q.audio_file) {
@@ -553,7 +553,7 @@ export default function CandidateVideoInterviewPage() {
       try {
         if (vRecRef.current?.state === 'recording') vRecRef.current.stop();
         if (aRecRef.current?.state === 'recording') aRecRef.current.stop();
-      } catch {}
+      } catch { }
       setRecording(false);
       playQuestionAudio(question);
     }
@@ -608,7 +608,7 @@ export default function CandidateVideoInterviewPage() {
     if (timerRef.current) clearInterval(timerRef.current);
 
     if (liveSpeechRef.current) {
-      try { liveSpeechRef.current.stop(); } catch {}
+      try { liveSpeechRef.current.stop(); } catch { }
       liveSpeechRef.current = null;
     }
 
@@ -937,7 +937,7 @@ export default function CandidateVideoInterviewPage() {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-between bg-[#0b0e14] text-white select-none overflow-hidden font-sans">
-      
+
       {/* 1. TOP HEADER: STATUS & CALL TIMER */}
       <header className="relative z-20 flex items-center justify-between px-6 pt-5 pb-2">
         {/* Left Status Badge: Live timer */}
@@ -969,7 +969,7 @@ export default function CandidateVideoInterviewPage() {
       {/* 2. MAIN STAGE: SPLIT-SCREEN 1-ON-1 TILES */}
       <main className="relative z-10 flex-1 w-full max-w-[1550px] mx-auto px-4 sm:px-6 py-2 min-h-0 flex items-center justify-center">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 h-full max-h-[76vh] w-full">
-          
+
           {/* LEFT TILE: CANDIDATE WEBCAM */}
           <div className="relative h-full w-full rounded-3xl overflow-hidden bg-[#131720] border border-white/10 shadow-2xl flex items-center justify-center">
             {camOn && !useTextFallback ? (
@@ -997,13 +997,12 @@ export default function CandidateVideoInterviewPage() {
 
             {/* Real-time Voice Detection Activity Badge */}
             {recording && (
-              <div className={`absolute top-4 left-4 flex items-center gap-2 rounded-full backdrop-blur-md px-3.5 py-1.5 text-xs font-bold text-white shadow-lg border transition-all ${
-                autoSubmitCountdown != null
+              <div className={`absolute top-4 left-4 flex items-center gap-2 rounded-full backdrop-blur-md px-3.5 py-1.5 text-xs font-bold text-white shadow-lg border transition-all ${autoSubmitCountdown != null
                   ? 'bg-amber-600/90 border-amber-400/50 shadow-amber-600/30'
                   : isCandidateSpeaking
-                  ? 'bg-emerald-600/90 border-emerald-400/50 scale-105'
-                  : 'bg-blue-600/80 border-blue-400/40'
-              }`}>
+                    ? 'bg-emerald-600/90 border-emerald-400/50 scale-105'
+                    : 'bg-blue-600/80 border-blue-400/40'
+                }`}>
                 <span className={`h-2 w-2 rounded-full bg-white ${autoSubmitCountdown != null ? 'animate-ping' : (isCandidateSpeaking ? 'animate-ping' : 'animate-pulse')}`} />
                 <span>{isCandidateSpeaking ? 'SPEAKING' : 'LISTENING'} ({mmss})</span>
                 {autoSubmitCountdown != null && (
@@ -1016,10 +1015,9 @@ export default function CandidateVideoInterviewPage() {
           </div>
 
           {/* RIGHT TILE: AI INTERVIEWER ("ARIA") */}
-          <div className={`relative h-full w-full rounded-3xl overflow-hidden bg-[#131720] border ${
-            aiSpeaking ? 'border-blue-500/60 shadow-[0_0_40px_rgba(59,130,246,0.25)]' : 'border-white/10'
-          } shadow-2xl transition-all duration-500 flex items-center justify-center`}>
-            
+          <div className={`relative h-full w-full rounded-3xl overflow-hidden bg-[#131720] border ${aiSpeaking ? 'border-blue-500/60 shadow-[0_0_40px_rgba(59,130,246,0.25)]' : 'border-white/10'
+            } shadow-2xl transition-all duration-500 flex items-center justify-center`}>
+
             <img
               src="/avatars/aria.jpg"
               alt="Aria - AI Interviewer"
@@ -1076,13 +1074,12 @@ export default function CandidateVideoInterviewPage() {
 
         {/* Floating pill dock */}
         <div className="flex items-center gap-2 sm:gap-3 rounded-full bg-[#181c24]/95 backdrop-blur-2xl border border-white/15 px-3.5 sm:px-5 py-2 shadow-[0_10px_35px_rgba(0,0,0,0.6)]">
-          
+
           {/* Microphone Toggle */}
           <button
             onClick={toggleMic}
-            className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
-              micOn ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-red-500/25 text-red-300 border border-red-500/30'
-            }`}
+            className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition ${micOn ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-red-500/25 text-red-300 border border-red-500/30'
+              }`}
             title="Toggle Microphone"
           >
             {micOn ? <Mic size={15} /> : <MicOff size={15} />}
@@ -1093,9 +1090,8 @@ export default function CandidateVideoInterviewPage() {
           {/* Camera Toggle */}
           <button
             onClick={toggleCam}
-            className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
-              camOn ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-red-500/25 text-red-300 border border-red-500/30'
-            }`}
+            className={`flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold transition ${camOn ? 'bg-white/10 hover:bg-white/15 text-white' : 'bg-red-500/25 text-red-300 border border-red-500/30'
+              }`}
             title="Toggle Camera"
           >
             {camOn ? <Video size={15} /> : <VideoOff size={15} />}
@@ -1120,11 +1116,10 @@ export default function CandidateVideoInterviewPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={stopAndSubmit}
-                className={`flex items-center gap-2 rounded-full text-white px-5 py-2.5 text-xs font-bold transition shadow-lg ${
-                  autoSubmitCountdown != null
+                className={`flex items-center gap-2 rounded-full text-white px-5 py-2.5 text-xs font-bold transition shadow-lg ${autoSubmitCountdown != null
                     ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-600/40 border border-amber-400/40 animate-pulse'
                     : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/40 border border-emerald-400/20'
-                }`}
+                  }`}
                 title="Click when done speaking to immediately move to the next question"
               >
                 <Square size={13} className="fill-white" />
@@ -1159,9 +1154,8 @@ export default function CandidateVideoInterviewPage() {
           <button
             onClick={() => setShowSubtitles((s) => !s)}
             title="Toggle Question Subtitles"
-            className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
-              showSubtitles ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40 hover:text-white'
-            }`}
+            className={`flex h-8 w-8 items-center justify-center rounded-full transition ${showSubtitles ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40 hover:text-white'
+              }`}
           >
             <Subtitles size={14} />
           </button>
