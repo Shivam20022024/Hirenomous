@@ -155,14 +155,23 @@ CRITICAL LOW-LATENCY DELIVERY RULES:
 
 async def extract_call_metrics(transcript: str, candidate_role: str = "Candidate") -> dict:
     """Uses LLM to evaluate the recruiter screening interview transcript and extract structured scoring."""
-    if not transcript or len(transcript.strip()) < 5:
+    # Extract candidate speech from transcript
+    candidate_lines = [
+        line.split("Candidate:", 1)[1].strip()
+        for line in (transcript or "").splitlines()
+        if "Candidate:" in line and line.split("Candidate:", 1)[1].strip()
+    ]
+    candidate_speech = " ".join(candidate_lines).strip()
+
+    # If the candidate said nothing or transcript has no candidate speech, do not hallucinate interest or scores
+    if not candidate_speech or len(candidate_speech) < 2:
         return {
             "communication_score": None,
             "technical_score": None,
             "confidence_score": None,
             "match_score": None,
             "interest": "callback_required",
-            "final_recommendation": "Call disconnected or no response. Callback required.",
+            "final_recommendation": "Call connected but no candidate speech was captured before disconnect. Callback required.",
             "total_experience": "N/A",
             "relevant_experience": "N/A",
             "employment_status": "Unknown",
@@ -176,10 +185,13 @@ async def extract_call_metrics(transcript: str, candidate_role: str = "Candidate
     }
     prompt = f"""
     Analyze this recruiter AI phone screening interview transcript for the role of '{candidate_role}'.
-    Extract the following metrics based strictly on the conversation.
-    If the candidate explicitly refused or hung up without answering, set interest to 'not_interested'.
-    If the candidate asked to be called back later, set interest to 'callback_required'.
-    Otherwise, if the candidate confirmed interest, set interest to 'interested'.
+    Extract the following metrics based STRICTLY on what the Candidate said in the conversation.
+
+    CRITICAL EVALUATION RULES:
+    1. If the Candidate said nothing, hung up without answering, or gave no intelligible response, set interest to 'callback_required' and final_recommendation to 'No candidate response captured. Callback required.'
+    2. If the Candidate explicitly refused, hung up, or said they are not looking/not interested, set interest to 'not_interested'.
+    3. If the Candidate asked to call back later or was busy, set interest to 'callback_required'.
+    4. ONLY set interest to 'interested' if the Candidate explicitly affirmed interest (e.g. said Yes, answered questions positively, or confirmed availability).
     
     Return strictly a JSON object with this format:
     {{
@@ -188,7 +200,7 @@ async def extract_call_metrics(transcript: str, candidate_role: str = "Candidate
         "confidence_score": 90,
         "match_score": 82,
         "interest": "interested",
-        "final_recommendation": "Strong candidate, recommended for next round.",
+        "final_recommendation": "Summary of candidate responses and recommendation.",
         "total_experience": "3 years",
         "relevant_experience": "2 years",
         "employment_status": "Employed",
@@ -225,17 +237,17 @@ async def extract_call_metrics(transcript: str, candidate_role: str = "Candidate
         safe_print(f"[PLIVO SCORING ERROR]: LLM evaluation failed: {e}")
 
     return {
-        "communication_score": 80,
-        "technical_score": 75,
-        "confidence_score": 82,
-        "match_score": 78,
-        "interest": "interested",
-        "final_recommendation": "Candidate completed initial AI screening call. Recommended for L2 interview.",
-        "total_experience": "Available on Resume",
-        "relevant_experience": "Available on Resume",
-        "employment_status": "Available",
-        "joining_availability": "Immediate",
-        "interview_availability": "Available"
+        "communication_score": None,
+        "technical_score": None,
+        "confidence_score": None,
+        "match_score": None,
+        "interest": "callback_required",
+        "final_recommendation": "Call completed but AI evaluation was inconclusive. Review transcript or callback.",
+        "total_experience": "N/A",
+        "relevant_experience": "N/A",
+        "employment_status": "Unknown",
+        "joining_availability": "N/A",
+        "interview_availability": "N/A"
     }
 
 async def finalize_plivo_call(call_id: str, company_id: str = None, transcript_parts: list = None):
@@ -306,28 +318,57 @@ async def finalize_plivo_call(call_id: str, company_id: str = None, transcript_p
         cand_role = (candidate.get("role") if candidate else None) or "Candidate"
     cand_role = str(cand_role).strip()
     
-    metrics = await extract_call_metrics(full_transcript, candidate_role=cand_role)
-    
-    interest_val = (metrics.get("interest") or "interested").lower()
-    if interest_val in ["interested", "yes", "confirmed"]:
-        final_status = "interested"
-    elif "callback" in interest_val:
+    # Check whether the candidate actually spoke in the transcript
+    candidate_lines = [
+        line.split("Candidate:", 1)[1].strip()
+        for line in (full_transcript or "").splitlines()
+        if "Candidate:" in line and line.split("Candidate:", 1)[1].strip()
+    ]
+    candidate_speech = " ".join(candidate_lines).strip()
+    candidate_spoke = bool(candidate_speech and len(candidate_speech) >= 2)
+
+    if not candidate_spoke:
         final_status = "callback_required"
-    elif "not" in interest_val:
-        final_status = "not_interested"
+        interest_val = "callback_required"
+        call_status_val = "no-response" if dur > 3 else "no-answer"
+        verdict = "No candidate response captured during call. Callback required."
+        metrics = {
+            "communication_score": None,
+            "technical_score": None,
+            "confidence_score": None,
+            "match_score": None,
+            "interest": "callback_required",
+            "final_recommendation": verdict,
+            "total_experience": candidate.get("total_experience") if candidate else "N/A",
+            "relevant_experience": "N/A",
+            "employment_status": "Unknown",
+            "joining_availability": "N/A",
+            "interview_availability": "N/A"
+        }
     else:
-        final_status = "completed"
+        metrics = await extract_call_metrics(full_transcript, candidate_role=cand_role)
+        interest_val = (metrics.get("interest") or "callback_required").lower()
+        if interest_val in ["interested", "yes", "confirmed"]:
+            final_status = "interested"
+        elif "callback" in interest_val:
+            final_status = "callback_required"
+        elif "not" in interest_val or "refuse" in interest_val or "reject" in interest_val:
+            final_status = "not_interested"
+        else:
+            final_status = "callback_required"
+        call_status_val = "completed"
+        verdict = metrics.get("final_recommendation", "")
 
     cand_update = {
         "status": final_status,
-        "call_status": "completed" if len(full_transcript.strip()) >= 5 else "no-answer",
+        "call_status": call_status_val,
         "call_duration": dur,
         "transcript": full_transcript,
         "transcription": full_transcript,
-        "candidate_responded": bool(len(full_transcript.strip()) >= 5),
-        "ai_summary": metrics.get("final_recommendation", ""),
-        "conversation_summary": metrics.get("final_recommendation", ""),
-        "recruiter_verdict": metrics.get("final_recommendation", ""),
+        "candidate_responded": candidate_spoke,
+        "ai_summary": verdict,
+        "conversation_summary": verdict,
+        "recruiter_verdict": verdict,
         "communication_score": metrics.get("communication_score"),
         "technical_score": metrics.get("technical_score"),
         "confidence_score": metrics.get("confidence_score"),
@@ -341,11 +382,10 @@ async def finalize_plivo_call(call_id: str, company_id: str = None, transcript_p
         "interest_status": interest_val,
         "last_interaction": now
     }
-    clean_cand_update = {k: v for k, v in cand_update.items() if v is not None}
 
     await db.candidates.update_one(
         {"$or": [{"id": cand_id}, {"call_id": call_id}, {"bolna_call_id": call_id}]},
-        {"$set": clean_cand_update}
+        {"$set": cand_update}
     )
 
     # Trigger Excel Synchronization
