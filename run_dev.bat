@@ -12,12 +12,12 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr :3001 ^| findstr LISTENING') 
 echo Starting Backend API (port 8001)...
 start "Hirenomous Backend (FastAPI :8001)" cmd /k "cd /d %~dp0backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload"
 
-timeout /t 3 /nobreak >nul
+ping 127.0.0.1 -n 3 >nul
 
 echo Starting Frontend UI (port 3001)...
 start "Hirenomous Frontend (Next.js :3001)" cmd /k "cd /d %~dp0frontend && npm run dev -- -p 3001"
 
-timeout /t 3 /nobreak >nul
+ping 127.0.0.1 -n 3 >nul
 
 echo.
 echo ========================================================
