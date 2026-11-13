@@ -27,7 +27,7 @@ class SarvamSTTSession:
             encoding="mulaw",
             sample_rate="8000",
             endpointing="vad",
-            silence_duration_ms="250",
+            silence_duration_ms="200",
             api_subscription_key=self._api_key,
         )
         self._socket = await self._socket_cm.__aenter__()

@@ -42,11 +42,12 @@ def clean_tts_text(text: str, customer_name: str = "", is_subsequent: bool = Fal
 # In-memory prewarmed greeting cache: call_id -> asyncio.Task
 DECOUPLED_GREETING_CACHE = {}
 
-async def prewarm_bakbak_connection(client: httpx.AsyncClient):
+async def prewarm_bakbak_connection(client: httpx.AsyncClient, api_key: str = None):
     """Pre-warms the TCP and TLS socket to Bakbak TTS during greeting playback so the first customer turn pays 0ms TLS setup."""
     try:
         if client is not None:
-            await client.head("https://hub.getraya.app", timeout=4.0)
+            headers = {"X-API-Key": api_key, "Content-Type": "application/json"} if api_key else {}
+            await client.request("OPTIONS", "https://hub.getraya.app/v1/text-to-speech", headers=headers, timeout=4.0)
             safe_print("[DECOUPLED PREWARM]: Bakbak TTS HTTP connection pre-warmed successfully (hot TLS socket ready).")
     except Exception as e:
         safe_print(f"[DECOUPLED PREWARM NOTICE]: Bakbak connection pre-warm non-critical: {e}")
@@ -205,7 +206,7 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
     # Warm connections in background
     asyncio.create_task(prewarm_openai_connection(openai_http_client, openai_key))
     if hasattr(tts_session, "_client") and tts_session._client:
-        asyncio.create_task(prewarm_bakbak_connection(tts_session._client))
+        asyncio.create_task(prewarm_bakbak_connection(tts_session._client, bakbak_key))
 
     agent_speaking_until = 0.0
     welcome_duration = 0.0
@@ -346,38 +347,73 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
                     asyncio.create_task(_save_transcript_bg())
                     messages.append({"role": "user", "content": customer_text})
 
+                    # Pipelined streaming TTS queue: stream each clause/sentence to Plivo as it generates
+                    tts_queue = asyncio.Queue()
+                    first_clause_delivered = False
+
+                    async def tts_consumer():
+                        nonlocal agent_speaking_until
+                        while True:
+                            chunk = await tts_queue.get()
+                            if chunk is None:
+                                tts_queue.task_done()
+                                break
+                            try:
+                                dur = await _speak_and_forward(
+                                    websocket, tts_session, chunk, candidate_name, is_subsequent=True
+                                )
+                                agent_speaking_until = max(agent_speaking_until, time.time()) + dur + 0.1
+                            except Exception as err:
+                                safe_print(f"[DECOUPLED TTS QUEUE ERROR]: {err}")
+                            finally:
+                                tts_queue.task_done()
+
+                    tts_consumer_task = asyncio.create_task(tts_consumer())
+
                     full_reply = ""
-                    first_sentence_flushed = False
-                    remainder_start = 0
-                    first_audio_task = None
+                    unprocessed_buffer = ""
 
                     async for delta in stream_openai_reply(messages, openai_key, "gpt-4o-mini", client=openai_http_client):
                         full_reply += delta
-                        if not first_sentence_flushed:
-                            m = _SENTENCE_END_RE.match(full_reply)
-                            target_match = None
+                        unprocessed_buffer += delta
+
+                        # Check for sentence boundary (. ! ? \n) or clause boundary (, ; :)
+                        while True:
+                            m = _SENTENCE_END_RE.match(unprocessed_buffer)
                             if m:
                                 cand = m.group(1).strip()
                                 if cand.lower() not in _COMMON_ABBRS and len(cand) >= 2:
-                                    target_match = m
-                            if not target_match:
-                                mc = _CLAUSE_END_RE.match(full_reply)
-                                if mc and len(mc.group(1).strip().split()) >= 3:
-                                    target_match = mc
+                                    unprocessed_buffer = unprocessed_buffer[m.end():]
+                                    if not first_clause_delivered:
+                                        first_clause_delivered = True
+                                        safe_print(f"[DECOUPLED LATENCY]: First sentence ready in {time.time() - turn_start:.2f}s: '{cand}'")
+                                    await tts_queue.put(cand)
+                                    continue
 
-                            if target_match:
-                                first_sentence_flushed = True
-                                remainder_start = target_match.end()
-                                first_sent_text = target_match.group(1).strip()
-                                safe_print(f"[DECOUPLED LATENCY]: First clause ready in {time.time() - turn_start:.2f}s: '{first_sent_text}'")
-                                first_audio_task = asyncio.create_task(
-                                    _speak_and_forward(websocket, tts_session, first_sent_text, candidate_name, is_subsequent=True)
-                                )
+                            mc = _CLAUSE_END_RE.match(unprocessed_buffer)
+                            if mc:
+                                cand_c = mc.group(1).strip()
+                                words = cand_c.split()
+                                if len(words) >= 2 or (len(words) == 1 and len(cand_c) >= 3):
+                                    unprocessed_buffer = unprocessed_buffer[mc.end():]
+                                    if not first_clause_delivered:
+                                        first_clause_delivered = True
+                                        safe_print(f"[DECOUPLED LATENCY]: First clause ready in {time.time() - turn_start:.2f}s: '{cand_c}'")
+                                    await tts_queue.put(cand_c)
+                                    continue
+                            break
+
+                    # Flush any remaining text in buffer
+                    remaining = unprocessed_buffer.strip()
+                    if remaining:
+                        await tts_queue.put(remaining)
+
+                    # Signal consumer that stream has ended and wait for audio completion
+                    await tts_queue.put(None)
+                    await tts_consumer_task
 
                     full_reply = full_reply.strip()
                     if not full_reply:
-                        if first_audio_task:
-                            await first_audio_task
                         return
 
                     clean_full_reply = clean_tts_text(full_reply, candidate_name, is_subsequent=True)
@@ -385,17 +421,6 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
                     messages.append({"role": "assistant", "content": clean_full_reply})
                     transcript_parts.append(f"AI: {clean_full_reply}")
                     asyncio.create_task(_save_transcript_bg())
-
-                    if first_audio_task:
-                        dur1 = await first_audio_task
-                        agent_speaking_until = max(agent_speaking_until, time.time()) + dur1 + 0.1
-                        remaining_text = full_reply[remainder_start:].strip()
-                        if remaining_text:
-                            dur2 = await _speak_and_forward(websocket, tts_session, remaining_text, candidate_name, is_subsequent=True)
-                            agent_speaking_until = max(agent_speaking_until, time.time()) + dur2 + 0.1
-                    else:
-                        dur3 = await _speak_and_forward(websocket, tts_session, clean_full_reply, candidate_name, is_subsequent=True)
-                        agent_speaking_until = max(agent_speaking_until, time.time()) + dur3 + 0.1
 
                     # Check for goodbye
                     reply_lower = clean_full_reply.lower()
@@ -446,7 +471,8 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
                 async for ev in stt_session.events():
                     if ev["type"] == "speech_started":
                         # Barge-in: if candidate speaks after initial welcome line, flush Plivo audio buffer immediately
-                        if time.time() >= agent_speaking_until:
+                        is_welcome = len(transcript_parts) <= 1
+                        if not is_welcome:
                             try:
                                 await websocket.send_text(json.dumps({"event": "clearAudio"}))
                                 safe_print("[BARGE-IN]: Candidate speaking, flushed Plivo carrier audio buffer.")

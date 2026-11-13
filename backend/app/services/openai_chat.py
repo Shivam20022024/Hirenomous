@@ -19,8 +19,8 @@ async def stream_openai_reply(messages: list, api_key: str, model: str = "gpt-4o
         "model": model,
         "messages": messages,
         "stream": True,
-        "max_tokens": 120,
-        "temperature": 0.3,
+        "max_tokens": 75,
+        "temperature": 0.2,
     }
     try:
         if client is not None:
