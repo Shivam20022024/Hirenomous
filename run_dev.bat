@@ -6,7 +6,7 @@ echo ========================================================
 echo.
 
 echo Starting Backend API (port 8001)...
-start "Hireonomous Backend (FastAPI :8001)" cmd /k "cd /d %~dp0backend && python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload"
+start "Hireonomous Backend (FastAPI :8001)" cmd /k "cd /d %~dp0backend && python -m uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload"
 
 timeout /t 3 /nobreak >nul
 

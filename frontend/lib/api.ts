@@ -5,6 +5,9 @@ export function getApiBaseUrl(): string {
       return envUrl;
     }
     const host = window.location.hostname || '127.0.0.1';
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://127.0.0.1:8001';
+    }
     return `http://${host}:8001`;
   }
   return process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8001';
