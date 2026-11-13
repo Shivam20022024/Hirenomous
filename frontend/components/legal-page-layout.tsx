@@ -16,7 +16,7 @@ export function LegalPageLayout({ title, updated, children }: { title: string; u
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-5">
           <Link href="/login" className="flex items-center gap-2.5">
             <BrandLogo className="h-8 w-8" />
-            <span className="text-base font-bold tracking-tight text-foreground">HirePilot</span>
+            <span className="text-base font-bold tracking-tight text-foreground">Hireonomous</span>
           </Link>
           <Link href="/login" className="text-sm font-semibold text-primary hover:underline">
             Sign in

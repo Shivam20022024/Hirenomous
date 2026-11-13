@@ -501,7 +501,7 @@ async def export_analytics(
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         format = "xlsx"
         
-    filename = f"hirepilot_report_{report_type}.{format}"
+    filename = f"hireonomous_report_{report_type}.{format}"
     return FileResponse(path=temp_path, filename=filename, media_type=media_type)
 
 @router.get("/callbacks")

@@ -37,7 +37,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         <div className="flex h-20 items-center gap-3 border-b border-sidebar-border px-6">
           <div className="brand-mark !h-9 !w-9 shrink-0 text-lg">H</div>
           <div>
-            <p className="text-sm font-bold tracking-tight text-sidebar-foreground">HirePilot</p>
+            <p className="text-sm font-bold tracking-tight text-sidebar-foreground">Hireonomous</p>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Super Admin</p>
           </div>
         </div>
@@ -62,7 +62,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         </nav>
         <div className="border-t border-sidebar-border p-4">
           <p className="truncate text-sm font-semibold text-sidebar-foreground">{user.name}</p>
-          <p className="truncate text-xs text-muted-foreground">{user?.email?.includes('novalantis.com') ? user.email.replace(/@.*novalantis\.com/i, '@hirepilot.com') : user?.email}</p>
+          <p className="truncate text-xs text-muted-foreground">{user.email}</p>
           <button
             onClick={logout}
             className="mt-3 flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"

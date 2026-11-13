@@ -289,7 +289,7 @@ export default function RegisterPage() {
             <Link href="/contact" className="hover:text-foreground hover:underline">Contact</Link>
           </nav>
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} HirePilot. All rights reserved.
+            A product by <span className="font-semibold text-foreground tracking-wide">NOVALANTIS</span>
           </p>
         </div>
       </div>

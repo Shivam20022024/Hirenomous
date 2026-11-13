@@ -8,7 +8,7 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'HirePilot | AI Recruitment Operations',
+  title: 'Hireonomous | AI Recruitment Operations',
   description: 'The intelligent operating system for modern recruitment teams.',
   generator: 'v0.app',
   icons: {

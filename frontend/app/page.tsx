@@ -238,7 +238,7 @@ export default function RootPage() {
         <header className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-2.5">
             <BrandLogo className="h-8 w-8 shrink-0" />
-            <span className="text-base font-bold tracking-tight text-primary-foreground">HirePilot</span>
+            <span className="text-base font-bold tracking-tight text-primary-foreground">Hirenomous</span>
           </div>
           <div className="flex items-center gap-3">
             <Link href={user ? '/dashboard' : '/login'} className="text-sm font-semibold text-primary-foreground/90 hover:text-primary-foreground">
@@ -262,7 +262,7 @@ export default function RootPage() {
             </Reveal>
             <Reveal delay={100}>
               <p className="mt-5 text-base leading-relaxed text-primary-foreground/85 sm:text-lg">
-                HirePilot screens resumes, runs AI voice and video interviews, and scores every candidate the same way, so your team spends time on decisions, not data entry.
+                Hirenomous screens resumes, runs AI voice and video interviews, and scores every candidate the same way, so your team spends time on decisions, not data entry.
               </p>
             </Reveal>
             <Reveal delay={200}>
@@ -336,7 +336,7 @@ export default function RootPage() {
       {/* Reasons grid */}
       <section id="why" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
         <Reveal className="mx-auto mb-14 max-w-xl text-center">
-          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">More reasons teams choose HirePilot</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">More reasons teams choose Hirenomous</h2>
         </Reveal>
         <div className="grid grid-cols-1 gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
           {REASONS.map((r, i) => (
@@ -365,9 +365,9 @@ export default function RootPage() {
             <Link href={primaryHref} className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-8 py-3.5 text-sm font-bold text-primary-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-md sm:w-auto">
               Get started <ArrowRight size={16} />
             </Link>
-            <Link href="/contact" className="inline-flex w-full items-center justify-center rounded-full border border-border px-8 py-3.5 text-sm font-bold text-foreground transition-all hover:-translate-y-0.5 hover:bg-muted sm:w-auto">
+            <a href="https://novalantis.com/contact-us/" className="inline-flex w-full items-center justify-center rounded-full border border-border px-8 py-3.5 text-sm font-bold text-foreground transition-all hover:-translate-y-0.5 hover:bg-muted sm:w-auto">
               Contact sales
-            </Link>
+            </a>
           </div>
         </Reveal>
       </section>
@@ -388,8 +388,8 @@ export default function RootPage() {
             <div>
               <p className="text-xs font-bold uppercase tracking-wide text-ink-foreground/50">Company</p>
               <ul className="mt-4 space-y-2.5 text-sm">
-                <li><Link href="/contact" className="hover:text-ink-foreground">About HirePilot</Link></li>
-                <li><Link href="/contact" className="hover:text-ink-foreground">Contact sales</Link></li>
+                <li><a href="https://novalantis.com" target="_blank" rel="noreferrer" className="hover:text-ink-foreground">About Novalantis</a></li>
+                <li><a href="https://novalantis.com/contact-us/" target="_blank" rel="noreferrer" className="hover:text-ink-foreground">Contact sales</a></li>
               </ul>
             </div>
             <div>
@@ -408,9 +408,9 @@ export default function RootPage() {
             </div>
           </div>
           <div className="flex flex-col items-center gap-2 pt-8 text-center">
-            <span className="text-sm font-bold text-ink-foreground">HirePilot</span>
+            <span className="text-sm font-bold text-ink-foreground">Hirenomous</span>
             <p className="text-[11px] font-semibold uppercase tracking-widest">
-              © {new Date().getFullYear()} HirePilot. All rights reserved.
+              © {new Date().getFullYear()} Hirenomous. A product by Novalantis.
             </p>
           </div>
         </div>

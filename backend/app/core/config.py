@@ -4,7 +4,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     # App Settings
-    APP_NAME: str = "HirePilot"
+    APP_NAME: str = "Hireonomous"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
 

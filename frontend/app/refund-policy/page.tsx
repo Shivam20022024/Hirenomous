@@ -5,7 +5,7 @@ export default function RefundPolicyPage() {
     <LegalPageLayout title="Refund & Cancellation Policy" updated="September 2026">
       <Section heading="Free trial">
         <p>
-          Every new HirePilot account starts with a 7-day free trial from the date it is approved. No payment
+          Every new Hireonomous account starts with a 7-day free trial from the date it is approved. No payment
           is required or collected during the trial, and you may stop using the platform at any time during
           this period at no cost.
         </p>
@@ -40,7 +40,7 @@ export default function RefundPolicyPage() {
         </ul>
         <p>
           If you believe you were charged in error, contact us within 7 days of the charge at{' '}
-          <a href="mailto:support@hirepilot.ai" className="text-primary hover:underline">support@hirepilot.ai</a>{' '}
+          <a href="mailto:info@novalantis.com" className="text-primary hover:underline">info@novalantis.com</a>{' '}
           with your company name and payment reference, and we will investigate promptly. Approved refunds are
           processed back to the original payment method via Razorpay, typically within 5–7 business days.
         </p>
@@ -48,7 +48,7 @@ export default function RefundPolicyPage() {
 
       <Section heading="Failed or missed payments">
         <p>
-          If your trial or paid period ends without a successful recharge, access to HirePilot is paused
+          If your trial or paid period ends without a successful recharge, access to Hireonomous is paused
           (your data is retained) until you recharge. No charge is made without your explicit action to pay.
         </p>
       </Section>
@@ -56,7 +56,7 @@ export default function RefundPolicyPage() {
       <Section heading="Contact">
         <p>
           For any billing question, email{' '}
-          <a href="mailto:support@hirepilot.ai" className="text-primary hover:underline">support@hirepilot.ai</a>.
+          <a href="mailto:info@novalantis.com" className="text-primary hover:underline">info@novalantis.com</a>.
         </p>
       </Section>
     </LegalPageLayout>

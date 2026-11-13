@@ -51,7 +51,7 @@ export default function LoginPage() {
         <div className="text-center">
           <BrandLogo className="mx-auto h-12 w-12" />
           <h2 className="mt-6 text-3xl font-bold tracking-tight text-foreground">
-            Sign in to HirePilot
+            Sign in to Hireonomous
           </h2>
           <p className="mt-2 text-base font-semibold text-foreground">
             Enter your details below to access your account
@@ -126,7 +126,7 @@ export default function LoginPage() {
             <Link href="/contact" className="hover:text-foreground hover:underline">Contact</Link>
           </nav>
           <p className="text-xs text-muted-foreground">
-            © {new Date().getFullYear()} HirePilot. All rights reserved.
+            A product by <span className="font-semibold text-foreground tracking-wide">NOVALANTIS</span>
           </p>
         </div>
       </div>

@@ -84,7 +84,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className={`flex h-20 items-center border-b border-sidebar-border ${collapsed ? 'lg:justify-center lg:px-2' : 'justify-between px-6'}`}>
           <div className="flex items-center gap-3">
             <BrandLogo className="h-9 w-9 shrink-0" />
-            <span className={`text-lg font-bold tracking-tight text-sidebar-foreground ${collapsed ? 'lg:hidden' : ''}`}>HirePilot</span>
+            <span className={`text-lg font-bold tracking-tight text-sidebar-foreground ${collapsed ? 'lg:hidden' : ''}`}>Hirenomous</span>
           </div>
           <button onClick={() => setMenuOpen(false)} className="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden" aria-label="Close navigation">
             <X size={18} />
@@ -121,7 +121,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className={`min-w-0 flex-1 ${collapsed ? 'lg:hidden' : ''}`}>
               <p className="truncate text-sm font-semibold text-sidebar-foreground">{user?.name || 'User'}</p>
-              <p className="truncate text-xs text-muted-foreground">{user?.email?.includes('novalantis.com') ? user.email.replace(/@.*novalantis\.com/i, '@hirepilot.com') : (user?.email || 'admin@hirepilot.com')}</p>
+              <p className="truncate text-xs text-muted-foreground">{user?.email || 'user@example.com'}</p>
             </div>
             <button onClick={() => setDropdownOpen(!dropdownOpen)} aria-label="Account menu">
               <ChevronDown className={`text-muted-foreground hover:text-foreground cursor-pointer ${collapsed ? '' : 'ml-auto'}`} size={16} />

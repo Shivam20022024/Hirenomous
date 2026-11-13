@@ -46,7 +46,7 @@ export function BillingGate() {
         key: order.key_id,
         amount: order.amount,
         currency: order.currency,
-        name: status?.organization_name || 'HirePilot',
+        name: status?.organization_name || 'Hireonomous',
         description: `${order.plan_label} plan`,
         order_id: order.order_id,
         theme: { color: '#4f46e5' },
@@ -103,7 +103,7 @@ export function BillingGate() {
             </div>
             <h2 className="text-lg font-bold text-foreground">Your free trial has ended</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {status.organization_name ? `${status.organization_name}'s` : 'Your'} access to HirePilot is paused.
+              {status.organization_name ? `${status.organization_name}'s` : 'Your'} access to Hireonomous is paused.
               Recharge to keep using AI interviews, calls and analytics.
             </p>
 
@@ -113,7 +113,7 @@ export function BillingGate() {
 
             {!status.billing_enabled ? (
               <p className="mt-4 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-                Payments aren&rsquo;t configured yet. Please contact your HirePilot account manager to recharge.
+                Payments aren&rsquo;t configured yet. Please contact your Hireonomous account manager to recharge.
               </p>
             ) : (
               <Button className="mt-5 w-full" size="lg" onClick={handleRecharge} disabled={paying}>

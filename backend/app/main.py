@@ -123,7 +123,7 @@ app.include_router(plivo_routes.plivo_router, prefix="/api/plivo", tags=["Plivo 
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to HirePilot AI Recruiter API"}
+    return {"message": "Welcome to Hireonomous AI Recruiter API"}
 
 @app.get("/ping")
 def ping():

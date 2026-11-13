@@ -1,17 +1,17 @@
 @echo off
-title HirePilot AI Launcher
+title Hireonomous AI Launcher
 echo ========================================================
-echo         Launching HirePilot AI Recruiter
+echo         Launching Hireonomous AI Recruiter
 echo ========================================================
 echo.
 
 echo Starting Backend API (port 8001)...
-start "HirePilot Backend (FastAPI :8001)" cmd /k "cd /d %~dp0backend && python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload"
+start "Hireonomous Backend (FastAPI :8001)" cmd /k "cd /d %~dp0backend && python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --reload"
 
 timeout /t 3 /nobreak >nul
 
 echo Starting Frontend UI (port 3000)...
-start "HirePilot Frontend (Next.js :3000)" cmd /k "cd /d %~dp0frontend && npm run dev"
+start "Hireonomous Frontend (Next.js :3000)" cmd /k "cd /d %~dp0frontend && npm run dev"
 
 timeout /t 3 /nobreak >nul
 

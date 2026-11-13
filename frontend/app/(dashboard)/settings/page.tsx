@@ -368,7 +368,7 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <h3 className="font-bold text-foreground">{profileName || user?.name}</h3>
-                    <p className="text-sm text-muted-foreground">{user?.email?.includes('novalantis.com') ? user.email.replace(/@.*novalantis\.com/i, '@hirepilot.com') : user?.email}</p>
+                    <p className="text-sm text-muted-foreground">{user?.email}</p>
                   </div>
                 </div>
 
@@ -396,7 +396,7 @@ export default function SettingsPage() {
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
                       <input
                         disabled
-                        value={user?.email?.includes('novalantis.com') ? user.email.replace(/@.*novalantis\.com/i, '@hirepilot.com') : (user?.email || '')}
+                        value={user?.email || ''}
                         className="w-full rounded-xl border border-border bg-muted pl-10 pr-4 py-2.5 text-sm opacity-80"
                       />
                     </div>
@@ -573,7 +573,7 @@ export default function SettingsPage() {
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-muted-foreground">
-                          Zero setup. Outbound AI calls use the verified HirePilot line (
+                          Zero setup. Outbound AI calls use the verified Hirenomous line (
                           <span className="font-mono font-medium">{telephonyForm.shared_phone_number}</span>).
                         </p>
                       </div>

@@ -9,7 +9,7 @@ logger = logging.getLogger("hirenomous-plivo-provider")
 
 class PlivoProvider:
     """
-    Direct Plivo Telephony Provider for HirePilot.
+    Direct Plivo Telephony Provider for Hirenomous.
     Allows companies to make and receive calls with dedicated Plivo numbers,
     bypassing intermediary platforms and ensuring guaranteed Caller ID.
     """
