@@ -1,26 +1,72 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <style>
-    @media (prefers-color-scheme: light) {
-      .background { fill: black; }
-      .foreground { fill: white; }
-    }
-    @media (prefers-color-scheme: dark) {
-      .background { fill: white; }
-      .foreground { fill: black; }
-    }
-  </style>
-  <g clip-path="url(#clip0_7960_43945)">
-    <rect class="background" width="180" height="180" rx="37" />
-    <g style="transform: scale(95%); transform-origin: center">
-      <path class="foreground"
-        d="M101.141 53H136.632C151.023 53 162.689 64.6662 162.689 79.0573V112.904H148.112V79.0573C148.112 78.7105 148.098 78.3662 148.072 78.0251L112.581 112.898C112.701 112.902 112.821 112.904 112.941 112.904H148.112V126.672H112.941C98.5504 126.672 86.5638 114.891 86.5638 100.5V66.7434H101.141V100.5C101.141 101.15 101.191 101.792 101.289 102.422L137.56 66.7816C137.255 66.7563 136.945 66.7434 136.632 66.7434H101.141V53Z" />
-      <path class="foreground"
-        d="M65.2926 124.136L14 66.7372H34.6355L64.7495 100.436V66.7372H80.1365V118.47C80.1365 126.278 70.4953 129.958 65.2926 124.136Z" />
-    </g>
-  </g>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <clipPath id="clip0_7960_43945">
-      <rect width="180" height="180" fill="white" />
-    </clipPath>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#0B132B" />
+      <stop offset="50%" stopColor="#0F172A" />
+      <stop offset="100%" stopColor="#042F2E" />
+    </linearGradient>
+
+    <!-- Outer Border Glow -->
+    <linearGradient id="borderGrad" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#38BDF8" stopOpacity="0.6" />
+      <stop offset="50%" stopColor="#0D9488" stopOpacity="0.2" />
+      <stop offset="100%" stopColor="#10B981" stopOpacity="0.5" />
+    </linearGradient>
+
+    <!-- Wing Left Gradient -->
+    <linearGradient id="wingLeft" x1="60" y1="60" x2="140" y2="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#38BDF8" />
+      <stop offset="50%" stopColor="#0284C7" />
+      <stop offset="100%" stopColor="#0369A1" />
+    </linearGradient>
+
+    <!-- Wing Right Gradient -->
+    <linearGradient id="wingRight" x1="128" y1="40" x2="210" y2="190" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#2DD4BF" />
+      <stop offset="50%" stopColor="#0D9488" />
+      <stop offset="100%" stopColor="#047857" />
+    </linearGradient>
+
+    <!-- Center Jet Fuselage -->
+    <linearGradient id="fuselage" x1="128" y1="40" x2="128" y2="180" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stopColor="#FFFFFF" />
+      <stop offset="40%" stopColor="#E2E8F0" />
+      <stop offset="100%" stopColor="#94A3B8" />
+    </linearGradient>
+
+    <!-- AI Spark Core -->
+    <radialGradient id="sparkGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stopColor="#38BDF8" stopOpacity="1" />
+      <stop offset="50%" stopColor="#0D9488" stopOpacity="0.5" />
+      <stop offset="100%" stopColor="#0F172A" stopOpacity="0" />
+    </radialGradient>
   </defs>
+
+  <!-- Squircle Base -->
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#bgGrad)" />
+  <rect x="8" y="8" width="240" height="240" rx="56" stroke="url(#borderGrad)" stroke-width="3" />
+
+  <!-- Background Ambient Glow -->
+  <circle cx="128" cy="120" r="70" fill="url(#sparkGlow)" />
+
+  <!-- Speed Orbital Arc (AI Velocity Track) -->
+  <path d="M 46 172 C 34 115 88 56 168 62 C 196 64 216 78 222 96" 
+        stroke="#38BDF8" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="1 0" opacity="0.45" />
+
+  <!-- Left Pilot Wing -->
+  <path d="M 128 48 L 56 182 C 53 188 60 194 66 191 L 128 160 Z" 
+        fill="url(#wingLeft)" />
+
+  <!-- Right Pilot Wing -->
+  <path d="M 128 48 L 128 160 L 190 191 C 196 194 203 188 200 182 Z" 
+        fill="url(#wingRight)" />
+
+  <!-- Center Supersonic Keel / Nose (Precision Flight) -->
+  <path d="M 128 42 L 120 160 L 128 172 L 136 160 Z" 
+        fill="url(#fuselage)" />
+
+  <!-- Forward Apex Cockpit Spark -->
+  <circle cx="128" cy="52" r="5" fill="#FFFFFF" />
+  <circle cx="128" cy="52" r="10" fill="#38BDF8" opacity="0.6" />
 </svg>

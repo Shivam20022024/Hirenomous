@@ -2,12 +2,12 @@ interface BrandLogoProps {
   className?: string;
 }
 
-/** Novalantis mark — the metallic "N" swirl. */
+/** HirePilot brand logo — supersonic pilot flight mark. */
 export function BrandLogo({ className }: BrandLogoProps) {
   return (
     <img
-      src="/novalantis-mark.png"
-      alt="Novalantis"
+      src="/hirepilot-logo.png"
+      alt="HirePilot"
       className={className}
       style={{ objectFit: 'contain' }}
     />
