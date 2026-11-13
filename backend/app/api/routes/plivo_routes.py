@@ -494,21 +494,14 @@ async def resolve_plivo_credentials(db, org_id: str):
 
 async def resolve_public_base_url(request: Optional[Request] = None) -> str:
     base_url = settings.PUBLIC_BASE_URL or getattr(settings, "BASE_URL", None)
-    if not base_url or "localhost" in base_url or "127.0.0.1" in base_url:
-        try:
-            async with httpx.AsyncClient(timeout=1.0) as client:
-                r = await client.get("http://127.0.0.1:4040/api/tunnels")
-                if r.status_code == 200:
-                    tunnels = r.json().get("tunnels", [])
-                    if tunnels:
-                        base_url = tunnels[0].get("public_url")
-        except Exception:
-            pass
-    if not base_url and request:
-        proto = request.headers.get("x-forwarded-proto", "http")
-        host = request.headers.get("host", "localhost:8001")
-        base_url = f"{proto}://{host}"
-    return (base_url or "http://localhost:8001").rstrip("/")
+    if base_url and "localhost" not in base_url and "127.0.0.1" not in base_url:
+        return base_url.rstrip("/")
+    if request:
+        proto = request.headers.get("x-forwarded-proto", "https")
+        host = request.headers.get("host", "")
+        if host and "localhost" not in host and "127.0.0.1" not in host:
+            return f"{proto}://{host}".rstrip("/")
+    return "https://api-hireonomous.novalantis.com"
 
 async def dispatch_single_plivo_call(
     candidate: dict,

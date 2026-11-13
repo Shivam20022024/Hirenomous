@@ -34,8 +34,8 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: Optional[str] = None
     TWILIO_AUTH_TOKEN: Optional[str] = None
     TWILIO_FROM_NUMBER: Optional[str] = None
-    PUBLIC_BASE_URL: Optional[str] = None
-    BASE_URL: Optional[str] = None
+    PUBLIC_BASE_URL: str = "https://api-hireonomous.novalantis.com"
+    BASE_URL: str = "https://api-hireonomous.novalantis.com"
     TWILIO_TTS_VOICE: str = "Polly.Joanna"
     TWILIO_RECORDING_DIR: str = "recordings"
 
