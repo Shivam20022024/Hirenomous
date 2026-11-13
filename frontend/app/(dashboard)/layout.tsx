@@ -121,7 +121,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
             <div className={`min-w-0 flex-1 ${collapsed ? 'lg:hidden' : ''}`}>
               <p className="truncate text-sm font-semibold text-sidebar-foreground">{user?.name || 'User'}</p>
-              <p className="truncate text-xs text-muted-foreground">{user?.email || 'user@example.com'}</p>
+              <p className="truncate text-xs text-muted-foreground">{user?.email?.includes('novalantis.com') ? user.email.replace(/@.*novalantis\.com/i, '@hirepilot.com') : (user?.email || 'admin@hirepilot.com')}</p>
             </div>
             <button onClick={() => setDropdownOpen(!dropdownOpen)} aria-label="Account menu">
               <ChevronDown className={`text-muted-foreground hover:text-foreground cursor-pointer ${collapsed ? '' : 'ml-auto'}`} size={16} />

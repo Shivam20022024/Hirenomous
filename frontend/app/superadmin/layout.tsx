@@ -62,7 +62,7 @@ export default function SuperAdminLayout({ children }: { children: React.ReactNo
         </nav>
         <div className="border-t border-sidebar-border p-4">
           <p className="truncate text-sm font-semibold text-sidebar-foreground">{user.name}</p>
-          <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+          <p className="truncate text-xs text-muted-foreground">{user?.email?.includes('novalantis.com') ? user.email.replace(/@.*novalantis\.com/i, '@hirepilot.com') : user?.email}</p>
           <button
             onClick={logout}
             className="mt-3 flex w-full items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
