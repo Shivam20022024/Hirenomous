@@ -61,7 +61,7 @@ class BakbakTTSSession:
                     "model": self._model,
                     "codec": "mulaw",
                     "sample_rate": 8000,
-                    "speed": 1.0,
+                    "speed": 1.05,
                 },
             )
             if resp.status_code != 200:

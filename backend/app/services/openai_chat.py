@@ -19,7 +19,7 @@ async def stream_openai_reply(messages: list, api_key: str, model: str = "gpt-4o
         "model": model,
         "messages": messages,
         "stream": True,
-        "max_tokens": 75,
+        "max_tokens": 50,
         "temperature": 0.2,
     }
     try:

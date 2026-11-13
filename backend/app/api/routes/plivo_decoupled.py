@@ -114,11 +114,19 @@ def prewarm_decoupled_greeting(
                 await session.__aexit__(None, None, None)
 
             t1 = time.time()
+            res = {"chunks": chunks, "duration": total_sec, "text": w_text}
+            try:
+                import tempfile
+                pf = os.path.join(tempfile.gettempdir(), f"hirenomous_prewarm_{call_id}.json")
+                with open(pf, "w") as f:
+                    json.dump(res, f)
+            except Exception:
+                pass
             safe_print(
                 f"[DECOUPLED PREWARM]: Pre-synthesized welcome greeting for call_id={call_id} "
                 f"({total_sec:.2f}s audio, {len(chunks)} chunks) in {t1 - t0:.2f}s"
             )
-            return {"chunks": chunks, "duration": total_sec, "text": w_text}
+            return res
         except Exception as e:
             safe_print(f"[DECOUPLED PREWARM ERROR]: Failed for call_id={call_id}: {e}")
             return None
@@ -220,6 +228,22 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
                 prewarmed_result = await asyncio.wait_for(asyncio.shield(prewarm_task), timeout=2.5)
             except Exception as e:
                 safe_print(f"[DECOUPLED PREWARM NOTICE]: Prewarm wait ended: {e}")
+
+        # Check cross-worker shared cache if running under multi-worker uvicorn
+        if not prewarmed_result:
+            try:
+                import tempfile
+                pf = os.path.join(tempfile.gettempdir(), f"hirenomous_prewarm_{call_id}.json")
+                if os.path.exists(pf):
+                    with open(pf, "r") as f:
+                        prewarmed_result = json.load(f)
+                    try:
+                        os.remove(pf)
+                    except Exception:
+                        pass
+                    safe_print(f"[DECOUPLED PREWARM]: Loaded pre-synthesized greeting from shared cache for call_id={call_id}")
+            except Exception as err:
+                safe_print(f"[DECOUPLED PREWARM NOTICE]: File prewarm read error: {err}")
 
         if prewarmed_result and prewarmed_result.get("chunks"):
             # FAST PATH: Play pre-synthesized audio chunks immediately (0ms delay!)
@@ -347,21 +371,50 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
                     asyncio.create_task(_save_transcript_bg())
                     messages.append({"role": "user", "content": customer_text})
 
-                    # Pipelined streaming TTS queue: stream each clause/sentence to Plivo as it generates
+                    # Pipelined concurrent streaming TTS queue: synthesize each chunk in parallel
                     tts_queue = asyncio.Queue()
                     first_clause_delivered = False
+
+                    async def _synthesize_chunk(text_chunk: str) -> dict:
+                        clean_chunk = clean_tts_text(text_chunk, candidate_name, is_subsequent=True)
+                        if not clean_chunk:
+                            return {"chunks": [], "duration": 0.0, "text": text_chunk}
+                        audio_chunks = []
+                        total_sec = 0.0
+                        try:
+                            async for audio_b64 in tts_session.speak(clean_chunk):
+                                if audio_b64:
+                                    audio_chunks.append(audio_b64)
+                                    try:
+                                        raw_bytes = base64.b64decode(audio_b64)
+                                        total_sec += len(raw_bytes) / 8000.0
+                                    except Exception:
+                                        pass
+                        except Exception as e:
+                            safe_print(f"[DECOUPLED TTS ERROR]: {e}")
+                        return {"chunks": audio_chunks, "duration": total_sec, "text": clean_chunk}
 
                     async def tts_consumer():
                         nonlocal agent_speaking_until
                         while True:
-                            chunk = await tts_queue.get()
-                            if chunk is None:
+                            synth_task = await tts_queue.get()
+                            if synth_task is None:
                                 tts_queue.task_done()
                                 break
                             try:
-                                dur = await _speak_and_forward(
-                                    websocket, tts_session, chunk, candidate_name, is_subsequent=True
-                                )
+                                res = await synth_task
+                                chunks = res.get("chunks", [])
+                                dur = res.get("duration", 0.0)
+                                for audio_b64 in chunks:
+                                    play_msg = {
+                                        "event": "playAudio",
+                                        "media": {
+                                            "contentType": "audio/x-mulaw",
+                                            "sampleRate": 8000,
+                                            "payload": audio_b64
+                                        }
+                                    }
+                                    await websocket.send_text(json.dumps(play_msg))
                                 agent_speaking_until = max(agent_speaking_until, time.time()) + dur + 0.1
                             except Exception as err:
                                 safe_print(f"[DECOUPLED TTS QUEUE ERROR]: {err}")
@@ -387,7 +440,9 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
                                     if not first_clause_delivered:
                                         first_clause_delivered = True
                                         safe_print(f"[DECOUPLED LATENCY]: First sentence ready in {time.time() - turn_start:.2f}s: '{cand}'")
-                                    await tts_queue.put(cand)
+                                    # Launch synthesis in parallel immediately!
+                                    task = asyncio.create_task(_synthesize_chunk(cand))
+                                    await tts_queue.put(task)
                                     continue
 
                             mc = _CLAUSE_END_RE.match(unprocessed_buffer)
@@ -399,14 +454,17 @@ async def run_decoupled_pipeline(websocket: WebSocket, call_id: str, company_id:
                                     if not first_clause_delivered:
                                         first_clause_delivered = True
                                         safe_print(f"[DECOUPLED LATENCY]: First clause ready in {time.time() - turn_start:.2f}s: '{cand_c}'")
-                                    await tts_queue.put(cand_c)
+                                    # Launch synthesis in parallel immediately!
+                                    task = asyncio.create_task(_synthesize_chunk(cand_c))
+                                    await tts_queue.put(task)
                                     continue
                             break
 
                     # Flush any remaining text in buffer
                     remaining = unprocessed_buffer.strip()
                     if remaining:
-                        await tts_queue.put(remaining)
+                        task = asyncio.create_task(_synthesize_chunk(remaining))
+                        await tts_queue.put(task)
 
                     # Signal consumer that stream has ended and wait for audio completion
                     await tts_queue.put(None)
