@@ -10,7 +10,7 @@ class Settings(BaseSettings):
 
     # MongoDB Settings
     MONGODB_URI: str
-    MONGODB_DB: str = "voiceai"
+    MONGODB_DB: str = "hirenomous"
 
     # OpenAI Settings (for Resume Parsing and optional TTS/STT)
     OPENAI_API_KEY: str
